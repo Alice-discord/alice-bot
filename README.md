@@ -2,10 +2,9 @@
     <h1><a href="#"></a>Alice Discord AI Bot</h1>
     <h3 align="center"><a href="#"></a>Discord bot to interact with <a href="https://github.com/jmorganca/ollama">Ollama</a> and <a href="https://github.com/lllyasviel/stable-diffusion-webui-forge">Stable Diffusion WebUI Forge</a> as a chatbot</h3>
     <h3><a href="#"></a><img alt="Discord chat with the bot" src="assets/screenshot.png" /></h3>
+    <h2>This bot was made for my needs its not the greatest experience to use on your own keep this in mind!</h2>
+    <h2 href="https://ethmangameon.github.io/alice-app/home.html"></h2>
 </div>
-
-# This bot was made for my needs its not the greatest experience to use on your own keep this in mind!
-# The instructions below arent updated and were written for the original bot this was forked from https://github.com/mekb-turtle/discord-ai-bot
 
 ### Set-up instructions
 1. Install [Node.js](https://nodejs.org) (if you have a package manager, use that instead to install this)
