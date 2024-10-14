@@ -17,6 +17,7 @@ import addchannel from "./addchannel.js";
 import rmchannel from "./rmchannel.js";
 import clear from "./clear.js";
 import respond from "./respond.js";
-const commandsArray = [setsysmsg, text2img, setinitprompt, addinitprompt, addsysmsg, resetsysmsg, resetinitprompt, system, initprompt, help, model, ping, img2img, describe, upscale, addchannel, rmchannel, clear, respond];
+import website from "./website.js";
+const commandsArray = [setsysmsg, text2img, setinitprompt, addinitprompt, addsysmsg, resetsysmsg, resetinitprompt, system, initprompt, help, model, ping, img2img, describe, upscale, addchannel, rmchannel, clear, respond, website];
 
 export default commandsArray;

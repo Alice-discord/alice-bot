@@ -2212,6 +2212,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							value: `Describe is very similar to respond however it can respond to images(It is required to use describe) and prompts`,
 						},
 						{
+							name: '/website',
+							value: `Display the current website for the bot.`,
+						},
+						{
 							name: 'System messages',
 							value: `System messages are tied to channel ID's; they are guidelines for a bot to follow, for example if i wrote you must respond as chewbacca the bot would try its best to follow those guidelines!`,
 						},
@@ -2495,7 +2499,54 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			}
 			log(LogLevel.Debug, `Finished responding to /ping`)
 			break;
-
+			case "website":
+				log(LogLevel.Debug, `Attempting to run /website`)
+				try {
+					await interaction.deferReply();
+					const reply = await interaction.fetchReply();
+					const ping = reply.createdTimestamp - interaction.createdTimestamp;
+					
+					var responseEmbed = {
+						color: 0xE42831,
+						title: 'Website',
+						author: {
+							name: 'Alice',
+							url: 'https://ethmangameon.github.io/alice-app/home.html',
+						},
+						description: `https://ethmangameon.github.io/alice-app/home.html`,
+						thumbnail: {
+							url: 'https://ethmangameon.github.io/alice-app/icon.png',
+						},
+						timestamp: new Date().toISOString(),
+						footer: {
+							text: `Website url`,
+							icon_url: 'https://ethmangameon.github.io/alice-app/icon.png',
+						},
+					};
+				
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
+				} catch (error) {
+					logError(error);
+					try {
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch {
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Error, please check the console | OVERIDE: ${error}`
+							});
+						} catch (error) {
+							logError(error);
+						}
+					}
+				}
+				log(LogLevel.Debug, `Finished responding to /website`)
+				break;
+	
 	}
 });
 
