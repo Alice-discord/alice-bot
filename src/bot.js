@@ -552,6 +552,7 @@ if (welcomeuser) {
 	});
 }
 
+if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
 client.on('guildCreate', async guild => {
 	try {
 
@@ -660,7 +661,7 @@ client.on('guildCreate', async guild => {
 		}
 	} catch (error) { logError(error); }
 	}); 
-
+}
 client.on(Events.InteractionCreate, async (interaction) => {
 	if (!interaction.isCommand()) return;
 
