@@ -1,12 +1,17 @@
 import { SlashCommandBuilder } from "discord.js";
 
-const text2img = new SlashCommandBuilder()
-	.setName("text2img")
+const img2img = new SlashCommandBuilder()
+	.setName("img2img")
 	.setContexts([0, 1, 2])
 	.setIntegrationTypes([0, 1])
-	.setDescription("Convert text to an image with Flux!")
+	.setDescription("Take an exsisting image and make it AI!")
+	.addAttachmentOption((option) => option
+		.setRequired(true)
+		.setName("image")
+		.setDescription("The image to convert")
+	)
 	.addStringOption((option) =>
-		option.setName("prompt").setDescription("Prompt").setRequired(true)
+		option.setName("prompt").setDescription("Prompt").setRequired(false)
 	)
 	.addNumberOption((option) =>
 		option
@@ -14,7 +19,7 @@ const text2img = new SlashCommandBuilder()
 			.setDescription("Width of the image")
 			.setRequired(false)
 			.setMinValue(32)
-			.setMaxValue(2048)
+			.setMaxValue(8192)
 	)
 	.addNumberOption((option) =>
 		option
@@ -26,19 +31,19 @@ const text2img = new SlashCommandBuilder()
 	)
 	.addNumberOption((option) =>
 		option
-			.setName("denoising_strength")
-			.setDescription("Respect for original image, 0 highest respect, 1 absolutly no respect.")
-			.setRequired(false)
-			.setMinValue(0)
-			.setMaxValue(1)
-	)
-	.addNumberOption((option) =>
-		option
 			.setName("steps")
 			.setDescription("Number of steps")
 			.setRequired(false)
 			.setMinValue(1)
 			.setMaxValue(30)
+	)
+	.addNumberOption((option) =>
+		option
+			.setName("denoising_strength")
+			.setDescription("Respect for original image, 0 highest respect, 1 absolutly no respect.")
+			.setRequired(false)
+			.setMinValue(0)
+			.setMaxValue(1)
 	)
 	.addNumberOption((option) =>
 		option
@@ -126,4 +131,4 @@ const text2img = new SlashCommandBuilder()
 			.setRequired(false)
 	);
 
-export default text2img;
+export default img2img;

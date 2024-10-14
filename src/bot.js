@@ -1,3 +1,5 @@
+/* eslint-disable */
+/* @ts-nocheck */
 import {
 	Client,
 	Events,
@@ -5,19 +7,26 @@ import {
 	MessageType,
 	Partials,
 	REST,
-	Routes
+	Routes,
+	ActivityType
 } from "discord.js";
 import { Logger, LogLevel } from "meklog";
 import dotenv from "dotenv";
 import axios from "axios";
 import commands from "./commands/commands.js";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const fs = require("fs");
 
 dotenv.config();
 
-const model = process.env.MODEL;
+if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
+if (!fs.existsSync("./cache/channels")) { fs.writeFileSync("./cache/channels", JSON.stringify(process.env.CHANNELS), 'utf8') }; 
+
+const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
 const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
-const stableDiffusionServers = process.env.STABLE_DIFFUSION.split(",").map(url => ({ url: new URL(url), available: true }));
-const channels = process.env.CHANNELS.split(",");
+const FluxServers = process.env.WEBUIFORGE.split(",").map(url => ({ url: new URL(url), available: true }));
+var model = process.env.MODEL;
 
 if (servers.length == 0) {
 	throw new Error("No servers available");
@@ -92,38 +101,38 @@ async function makeRequest(path, method, data) {
 	throw error;
 }
 
-async function makeStableDiffusionRequest(path, method, data) {
-	while (stableDiffusionServers.filter(server => server.available).length == 0) {
+async function makeFluxRequest(path, method, data) {
+	while (FluxServers.filter(server => server.available).length == 0) {
 		// wait until a server is available
 		await new Promise(res => setTimeout(res, 1000));
 	}
 
 	let error = null;
 	// randomly loop through the servers available, don't shuffle the actual array because we want to be notified of any updates
-	let order = new Array(stableDiffusionServers.length).fill().map((_, i) => i);
+	let order = new Array(FluxServers.length).fill().map((_, i) => i);
 	if (randomServer) order = shuffleArray(order);
 	for (const j in order) {
 		if (!order.hasOwnProperty(j)) continue;
 		const i = order[j];
 		// try one until it succeeds
 		try {
-			// make a request to stable diffusion
-			if (!stableDiffusionServers[i].available) continue;
-			const url = new URL(stableDiffusionServers[i].url); // don't modify the original URL
+			// make a request to flux
+			if (!FluxServers[i].available) continue;
+			const url = new URL(FluxServers[i].url); // don't modify the original URL
 
-			stableDiffusionServers[i].available = false;
+			FluxServers[i].available = false;
 
 			if (path.startsWith("/")) path = path.substring(1);
 			if (!url.pathname.endsWith("/")) url.pathname += "/"; // safety
 			url.pathname += path;
-			log(LogLevel.Debug, `Making stable diffusion request to ${url}`);
+			log(LogLevel.Debug, `Making request to ${url}`);
 			const result = await axios({
 				method, url, data
 			});
-			stableDiffusionServers[i].available = true;
+			FluxServers[i].available = true;
 			return result.data;
 		} catch (err) {
-			stableDiffusionServers[i].available = true;
+			FluxServers[i].available = true;
 			error = err;
 			logError(error);
 		}
@@ -152,13 +161,16 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
 client.once(Events.ClientReady, async () => {
 	await client.guilds.fetch();
-	client.user.setPresence({ activities: [], status: "online" });
-	await rest.put(Routes.applicationCommands(client.user.id), {
-		body: commands
-	});
+	client.user.setPresence({ activities: [{ name: `/help and, @${client.user.username}`, type: ActivityType.Listening, url:"https://ethmangameon.github.io/alice-app/home.html" }], status: "online" });
+	if (getBoolean(process.env.RENEW_COMMANDS)) {
+		await rest.put(Routes.applicationCommands(client.user.id), {
+			body: commands
+		});
+		log(LogLevel.Info, commands)
 
-	log(LogLevel.Info, "Successfully reloaded application slash (/) commands.");
-});
+		log(LogLevel.Info, "Successfully reloaded application slash (/) commands.");
+	}
+	});
 
 const messages = {};
 
@@ -231,16 +243,19 @@ function parseEnvString(str) {
 		parseJSONMessage(str).replace(/<date>/gi, new Date().toUTCString()) : null;
 }
 
-const customSystemMessage = parseEnvString(process.env.SYSTEM);
-const useCustomSystemMessage = getBoolean(process.env.USE_SYSTEM) && !!customSystemMessage;
-const useModelSystemMessage = getBoolean(process.env.USE_MODEL_SYSTEM);
 const showStartOfConversation = getBoolean(process.env.SHOW_START_OF_CONVERSATION);
 const randomServer = getBoolean(process.env.RANDOM_SERVER);
-let modelInfo = null;
-const initialPrompt = parseEnvString(process.env.INITIAL_PROMPT);
-const useInitialPrompt = getBoolean(process.env.USE_INITIAL_PROMPT) && !!initialPrompt;
 
+//Ethan's Modified env settings
+const usesystime = getBoolean(process.env.DATEINMESSAGE);
+const useutctime = getBoolean(process.env.UTCTIMEINMESSAGE);
+const useUsername = getBoolean(process.env.USEUSERNAME);
+const useUserID = getBoolean(process.env.USEUSERID);
+const useServername = getBoolean(process.env.USEGUILDNAME);
+const useChannelID = getBoolean(process.env.USECHANNELID);
+const useChannelname = getBoolean(process.env.USECHANNELNAME);
 const requiresMention = getBoolean(process.env.REQUIRES_MENTION);
+const useNickname = getBoolean(process.env.USENICKNAME);
 
 async function replySplitMessage(replyMessage, content) {
 	const responseMessages = splitText(content, 2000).map(text => ({ content: text }));
@@ -260,6 +275,13 @@ client.on(Events.MessageCreate, async message => {
 	let typing = false;
 	try {
 		await message.fetch();
+
+		if (fs.existsSync("./cache/channels")) {
+			var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8')).slice(1);
+		}
+		else {
+			var channels = process.env.CHANNELS.split(",");
+		}
 
 		// return if not in the right channel
 		const channelID = message.channel.id;
@@ -287,88 +309,17 @@ client.on(Events.MessageCreate, async message => {
 			return;
 		}
 
-		// fetch info about the model like the template and system message
-		if (modelInfo == null) {
-			modelInfo = (await makeRequest("/api/show", "post", {
-				name: model
-			}));
-			if (typeof modelInfo === "string") modelInfo = JSON.parse(modelInfo);
-			if (typeof modelInfo !== "object") throw "failed to fetch model information";
-		}
 
-		const systemMessages = [];
+		//Make sure the directories and files to store content for bot function exsist
+		if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
+		if (!fs.existsSync("./cache/context")) { fs.mkdirSync("./cache/context") };
+		if (!fs.existsSync("./cache/initial-prompt")) { fs.mkdirSync("./cache/initial-prompt") };
+		if (!fs.existsSync("./cache/system-message")) { fs.mkdirSync("./cache/system-message") };
+		if (!fs.existsSync(`./cache/system-message/system-message-${message.channel.id}.txt`)) { fs.writeFileSync(`./cache/system-message/system-message-${message.channel.id}.txt`, parseEnvString(process.env.SYSTEM)) }
+		if (!fs.existsSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`)) { fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`, parseEnvString(process.env.INITIAL_PROMPT)) }
 
-		if (useModelSystemMessage && modelInfo.system) {
-			systemMessages.push(modelInfo.system);
-		}
-
-		if (useCustomSystemMessage) {
-			systemMessages.push(customSystemMessage);
-		}
-
-		// join them together
-		const systemMessage = systemMessages.join("\n\n");
-
-		// deal with commands first before passing to LLM
 		let userInput = message.content
 			.replace(new RegExp("^s*" + myMention.source, ""), "").trim();
-
-		// may change this to slash commands in the future
-		// i'm using regular text commands currently because the bot interacts with text content anyway
-		if (userInput.startsWith(".")) {
-			const args = userInput.substring(1).split(/\s+/g);
-			const cmd = args.shift();
-			switch (cmd) {
-				case "reset":
-				case "clear":
-					if (messages[channelID] != null) {
-						// reset conversation
-						const cleared = messages[channelID].amount;
-
-						// clear
-						delete messages[channelID];
-
-						if (cleared > 0) {
-							await message.reply({ content: `Cleared conversation of ${cleared} messages` });
-							break;
-						}
-					}
-					await message.reply({ content: "No messages to clear" });
-					break;
-				case "help":
-				case "?":
-				case "h":
-					await message.reply({ content: "Commands:\n- `.reset` `.clear`\n- `.help` `.?` `.h`\n- `.ping`\n- `.model`\n- `.system`" });
-					break;
-				case "model":
-					await message.reply({
-						content: `Current model: ${model}`
-					});
-					break;
-				case "system":
-					await replySplitMessage(message, `System message:\n\n${systemMessage}`);
-					break;
-				case "ping":
-					// get ms difference
-					try {
-						const beforeTime = Date.now();
-						const reply = await message.reply({ content: "Ping" });
-						const afterTime = Date.now();
-						const difference = afterTime - beforeTime;
-						await reply.edit({ content: `Ping: ${difference}ms` });
-					} catch (error) {
-						logError(error);
-						await message.reply({ content: "Error, please check the console" });
-					}
-					break;
-				case "":
-					break;
-				default:
-					await message.reply({ content: "Unknown command, type `.help` for a list of commands" });
-					break;
-			}
-			return;
-		}
 
 		if (message.type == MessageType.Default && (requiresMention && message.guild && !message.content.match(myMention))) return;
 
@@ -418,13 +369,11 @@ client.on(Events.MessageCreate, async message => {
 			}
 		}
 
+
 		// create conversation
 		if (messages[channelID] == null) {
 			messages[channelID] = { amount: 0, last: null };
 		}
-
-		// log user's message
-		log(LogLevel.Debug, `${message.guild ? `#${message.channel.name}` : "DMs"} - ${message.author.username}: ${userInput}`);
 
 		// start typing
 		typing = true;
@@ -444,20 +393,43 @@ client.on(Events.MessageCreate, async message => {
 		let response;
 		try {
 			// context if the message is not a reply
-			if (context == null) {
-				context = messages[channelID].last;
-			}
 
-			if (useInitialPrompt && messages[channelID].amount == 0) {
-				userInput = `${initialPrompt}\n\n${userInput}`;
-				log(LogLevel.Debug, "Adding initial prompt to message");
-			}
+			if (context == null) {
+				if (fs.existsSync(`./cache/context/context-${message.channel.id}`)) {
+					context = JSON.parse(fs.readFileSync(`./cache/context/context-${message.channel.id}`, 'utf8'));
+				}
+				else {
+					context = messages[channelID].last;
+				}
+			};
+
+			// Adding additional info about conversation! (A little much i know i need to make this look better!)
+			var utctime = new Date().toUTCString();
+			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
+			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
+			if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
+			if (useUsername) { var UserUsername = `USERNAME OF DISCORD USER: ${message.author.username}\n`; } else { var UserUsername = `` }
+			if (useUserID) { var UserID = `DISCORD USER-ID: ${message.author.id}\nDISCORD USER MENTION IS: <@${message.author.id}>`; } else { var UserID = `` }
+			if (useServername) { if (message.guild != null) { var ServerName = `DISCORD SERVER NAME: ${message.guild}\n`; } else { var ServerName = `` } } else { var ServerName = `` }
+			if (useChannelID) { var ChannelID = `DISCORD CHANNEL ID: ${message.channel.id}\n`; if (message.guild != null) { var ChannelID = + `DISCORD CHANNEL MENTION: <#${message.channel.id}>\n` } } else { var ChannelID = `` }
+			if (useChannelname) { var ChannelName = `DISCORD SERVER CHANNEL NAME: #${message.channel.name}\n`; } else { var ChannelName = `` }
+			if (useChannelname) { if (message.guild == null) { var ChannelName = `Direct-message with the user ${message.author.tag}\n`; } }
+			if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${message.author.displayName}\n` } else { var Nickname = `` };
+			var initialPrompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`)
+			log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
+			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`);
+			userInput = `Init-Prompt: ${initialPrompt}\n\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`; 
+			var usersystemMessage = fs.readFileSync(`./cache/system-message/system-message-${message.channel.id}.txt`)
+			var systemMessagetomodel = `${usersystemMessage}`
+			log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
+
 
 			// make request to model
 			response = (await makeRequest("/api/generate", "post", {
 				model: model,
 				prompt: userInput,
-				system: systemMessage,
+				system: systemMessagetomodel,
+				keep_alive: 0,
 				context
 			}));
 
@@ -502,11 +474,26 @@ client.on(Events.MessageCreate, async message => {
 		}
 		messages[channelID].last = context;
 		++messages[channelID].amount;
+		
+
+		fs.writeFileSync(`./cache/context/context-${message.channel.id}`,
+
+			JSON.stringify(context), 'utf8',
+
+			function (err) {
+				if (err) {
+					logError(err);
+				}
+			}
+		);
+
+		context == null
+
 	} catch (error) {
 		if (typing) {
 			try {
 				// return error
-				await message.reply({ content: "Error, please check the console" });
+				await message.reply({ content: `Error, please check the console | OVERIDE: ${error}` });
 			} catch (ignored) {
 				logError(ignored);
 			}
@@ -514,6 +501,165 @@ client.on(Events.MessageCreate, async message => {
 		logError(error);
 	}
 });
+if (welcomeuser) {
+	client.on('guildMemberAdd', async member => {
+		try {
+
+			try {
+				if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)) {
+					var init_prompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
+				} else { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
+			} catch { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
+			var init_prompt = `${init_prompt}\n\n`
+
+			var prompt = `Write a welcome message to the discord user ${member.displayName}, they just joined the server ${member.guild.name}!`; 
+			const model = process.env.MODEL; 
+			const system = `You write welcoming messages for the discord server ${member.guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${parseEnvString(process.env.SYSTEM)}`; 
+			var utctime = new Date().toUTCString();
+			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
+			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
+			if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
+			if (useUserID) { var UserID = `DISCORD USER-ID: ${member.id}\nDISCORD USER MENTION IS: <@${member.id}>\n`; } else { var UserID = `` }
+			if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${member.displayName}\n` } else { var Nickname = `` };
+			var prompt = `${init_prompt}\n${currentsystime}${currentutctime}${Nickname}${UserID}${prompt}`
+			log(LogLevel.Debug, prompt)
+
+			var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
+			response = (await makeRequest("/api/generate", "post", {
+				model,
+				prompt,
+				system
+			}));
+
+			if (typeof response != "string") {
+				log(LogLevel.Debug, response);
+				throw new TypeError("response is not a string, this may be an error with ollama");
+			}
+
+			response = response.split("\n").filter(e => !!e).map(e => {
+				return JSON.parse(e);
+			});
+
+			let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
+			if (responseText.length == 0) {
+				responseText = "(No response)";
+			}
+
+			member.send(`-# This message was generated by an LLM\n-# You may learn how to use this bot in this dm by writing /help\n-# You may also dm this bot and it will respond\n${responseText}`)
+		} catch (error) {
+			logError(error);
+		}
+	});
+}
+
+client.on('guildCreate', async guild => {
+	try {
+
+		try {
+			if (fs.existsSync(`./cache/system-message/system-message-${guild.systemChannel.id}.txt`)) {
+				var channel_system = fs.readFileSync(`./cache/system-message/system-message-${guild.systemChannel.id}.txt`)
+			} else { var channel_system = parseEnvString(process.env.SYSTEM) }
+		} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+		var channel_system = `${channel_system}`
+
+		try {
+			// context if the message is not a reply
+
+			if (context == null) {
+				if (fs.existsSync(`./cache/context/context-${guild.systemChannel.id}`)) {
+					context = JSON.parse(fs.readFileSync(`./cache/context/context-${guild.systemChannel.id}`, 'utf8'));
+				}
+				else {
+					context = [0, 0]
+				}
+			};
+		} catch { var context = [0, 0] }
+
+		var prompt = `Write a message to introduce yourself in the new discord server you were invited to and joined ${guild.name}`;
+		const model = process.env.MODEL;
+		const system = `You write a Message to introduce yourself in ${guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`;
+		var utctime = new Date().toUTCString();
+		var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
+		if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
+		if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
+		var prompt = `\n${currentsystime}${currentutctime}${prompt}`
+		log(LogLevel.Debug, prompt)
+
+		var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
+		response = (await makeRequest("/api/generate", "post", {
+			model,
+			prompt,
+			system,
+			context
+		}));
+
+		if (typeof response != "string") {
+			log(LogLevel.Debug, response);
+			throw new TypeError("response is not a string, this may be an error with ollama");
+		}
+
+		response = response.split("\n").filter(e => !!e).map(e => {
+			return JSON.parse(e);
+		});
+
+		let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
+		if (responseText.length == 0) {
+			responseText = "(No response)";
+		}
+
+
+
+
+		try {
+			if (fs.existsSync("./cache/channels")) {
+				var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
+			}
+			if (!channels.includes(`${guild.systemChannel.id}`)) {
+
+				channels += `,${guild.systemChannel.id}`
+
+				fs.writeFileSync(`./cache/channels`,
+
+					JSON.stringify(channels), 'utf8',
+
+					function (err) {
+						if (err) {
+							logError(err)('Crap happens');
+						}
+					}
+				);
+			}
+		} catch (error) {
+			logError(error);
+		}
+
+		context = response.filter(e => e.done && e.context)[0].context;
+
+		try {
+			fs.writeFileSync(`./cache/context/context-${guild.systemChannel.id}`,
+
+				JSON.stringify(context), 'utf8',
+
+				function (err) {
+					if (err) {
+						logError(err);
+					}
+				}
+			);
+		}
+		catch (error) {
+			logError(`guild.systemChannel.id couldnt be found so context was not cached (However this is not an fatal error, no need to panic!)`)
+		}
+
+
+		try {
+			guild.systemChannel.send(`# Please contact <@635136583078772754> if you have any issues!\n## Hello my name is ${client.user.username}, type \`/help\` to view my commands.\n### In order to enable my features in a channel please use \`/addchannel\` (I have added myself to this channel) then use <@${client.user.id}> to mention me with your message.\n-# This response is generated by AI\n${responseText}`
+			)
+		} catch (error) {
+			logError(error);
+		}
+	} catch (error) { logError(error); }
+	}); 
 
 client.on(Events.InteractionCreate, async (interaction) => {
 	if (!interaction.isCommand()) return;
@@ -522,23 +668,39 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 	switch (commandName) {
 		case "text2img":
+			log(LogLevel.Debug, `Attempting to run /text2img`)
 			try {
+				function randomnumbergenseed(max) {
+					return Math.floor(Math.random() * max);
+				}
 				const prompt = options.getString("prompt");
-				const width = options.getNumber("width") || 256;
-				const height = options.getNumber("height") || 256;
-				const steps = options.getNumber("steps") || 10;
+				const sampler_method = options.getString("sampling_method") || "Euler";
+				const sampler_type = options.getString("sampling_method") || "Simple";
+				const sampler_name = `${sampler_method} ${sampler_type}`;
+				const width = options.getNumber("width") || 896;
+				const height = options.getNumber("height") || 1152;
+				const steps = options.getNumber("steps") || 20;
 				const batch_count = options.getNumber("batch_count") || 1;
 				const batch_size = options.getNumber("batch_size") || 1;
+				const seed = options.getNumber("seed") || (randomnumbergenseed(10000000));
+				const cfg_scale = options.getNumber("cfg_scale") || 1;
+				const distilled_cfg_scale = options.getNumber("distilled_cfg_scale") || 3.5;
 				const enhance_prompt = (options.getBoolean("enhance_prompt") && true) ? "yes" : "no";
+				const denoising_strength = options.getNumber("denoising_strength") || 0.75;
 
 				await interaction.deferReply();
-				const stableDiffusionResponse = await makeStableDiffusionRequest(
+				const fluxResponse = await makeFluxRequest(
 					"/sdapi/v1/txt2img",
 					"post",
 					{
 						prompt,
+						seed,
+						denoising_strength,
 						width,
 						height,
+						cfg_scale,
+						distilled_cfg_scale,
+						sampler_name,
 						steps,
 						num_inference_steps: steps,
 						batch_count,
@@ -546,20 +708,950 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						enhance_prompt
 					}
 				);
-				const images = stableDiffusionResponse.images.map((image) =>
+				const images = fluxResponse.images.map((image) =>
 					Buffer.from(image, "base64")
 				);
+				var parametersresponse = `* res: ${width}x${height}\n* seed: ${seed}\n* cfg scale: ${cfg_scale}\n* sampler: ${sampler_name}\n* steps: ${steps}\n* batch count: ${batch_count}\n* batch size: ${batch_size}\n* enhance prompt: ${enhance_prompt}\n* distilled cfg scale: ${distilled_cfg_scale}`
 				await interaction.editReply({
-					content: `Here are images from prompt \`${prompt}\``,
+					content: `## Here is your image <@${interaction.user.id}>\n-# Here are images from prompt \`${prompt}\`\n\`${parametersresponse}\``,
 					files: images
 				});
 			} catch (error) {
 				logError(error);
-				await interaction.editReply({
-					content: "Error, please check the console"
-				});
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
 			}
+			log(LogLevel.Debug, `Finished responding to /text2img`)
 			break;
+		case "img2img":
+			log(LogLevel.Debug, `Attempting to run /img2img`)
+			try {
+				function randomnumbergenseed(max) {
+					return Math.floor(Math.random() * max);
+				}
+
+				const attachment = options.getAttachment("image")
+				const url = attachment.url
+				var b64image = []
+				try {
+					log(LogLevel.Debug, `making rq to ${url}`);
+					const response = await axios.get(url, {
+						responseType: "text",
+						responseEncoding: "base64",
+					}
+					)
+					b64image = [response.data]
+
+				} catch (error) {
+					log(LogLevel.Error, `Failed to download image files: ${error}`);
+					break; // Stop processing if file download fails
+				}
+
+				const init_images = b64image
+				const prompt = options.getString("prompt") || "Enhance the image!"; 
+				const sampler_method = options.getString("sampling_method") || "Euler"; 
+				const sampler_type = options.getString("sampling_method") || "Simple"; 
+				const sampler_name = `${sampler_method} ${sampler_type}`; 
+				const width = options.getNumber("width") || 896; 
+				const denoising_strength = options.getNumber("denoising_strength") || 0.75;
+				const height = options.getNumber("height") || 1152; 
+				const steps = options.getNumber("steps") || 20; 
+				const batch_count = options.getNumber("batch_count") || 1; 
+				const batch_size = options.getNumber("batch_size") || 1; 
+				const seed = options.getNumber("seed") || (randomnumbergenseed(10000000)); 
+				const cfg_scale = options.getNumber("cfg_scale") || 1; 
+				const distilled_cfg_scale = options.getNumber("distilled_cfg_scale") || 3.5; 
+				const enhance_prompt = (options.getBoolean("enhance_prompt") && true) ? "yes" : "no"; 
+
+				await interaction.deferReply();
+				const fluxResponse = await makeFluxRequest(
+					"/sdapi/v1/img2img",
+					"post",
+					{
+						prompt,
+						init_images,
+						seed,
+						width,
+						height,
+						cfg_scale,
+						distilled_cfg_scale,
+						denoising_strength,
+						sampler_name,
+						steps,
+						num_inference_steps: steps,
+						batch_count,
+						batch_size,
+						enhance_prompt
+					}
+				);
+				const images = fluxResponse.images.map((image) =>
+					Buffer.from(image, "base64")
+				);
+				images.join(init_images);
+				var parametersresponse = `* res: ${width}x${height}\n* seed: ${seed}\n* cfg scale: ${cfg_scale}\n* sampler: ${sampler_name}\n* steps: ${steps}\n* batch count: ${batch_count}\n* batch size: ${batch_size}\n* enhance prompt: ${enhance_prompt}\n* distilled cfg scale: ${distilled_cfg_scale}\n* denoising strength: ${denoising_strength}`
+				await interaction.editReply({
+					content: `## Here is your new image <@${interaction.user.id}>\n-# Here are the text to image, images from the image ${url} and the prompt: \`${prompt}\`\n\`${parametersresponse}\``,
+					files: images
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /img2img`)
+			break;
+		case "describe":
+			log(LogLevel.Debug, `Attempting to run /describe`)
+			try {
+
+				const attachment = options.getAttachment("image");
+				const url = attachment.url;
+				var b64image = []
+				try {
+					log(LogLevel.Debug, `making rq to ${url}`);
+					const response = await axios.get(url, {
+						responseType: "text",
+						responseEncoding: "base64",
+					}
+					)
+					b64image = [response.data]
+
+				} catch (error) {
+					log(LogLevel.Error, `Failed to download image files: ${error}`);
+					break; // Stop processing if file download fails
+				}
+				try {
+					if (fs.existsSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)) {
+						var channel_system = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
+					} else { var channel_system = parseEnvString(process.env.SYSTEM) }
+				} catch (error) { var channel_system = parseEnvString(process.env.SYSTEM) }
+				var channel_system = `${channel_system}`
+
+				const imagesb64 = b64image;
+				var prompt = options.getString("prompt") || "Describe the image";
+
+				const botRole = interaction.guild?.members?.me?.roles?.botRole;
+				const myMention = new RegExp(`<@((!?${client.user.id}${botRole ? `)|(&${botRole.id}` : ""}))>`, "g");
+
+				prompt = prompt
+					.replace(myMention, "")
+					.replace(/<#([0-9]+)>/g, (_, id) => {
+						if (interaction.guild) {
+							const chn = interaction.guild.channels.cache.get(id);
+							if (chn) return `#${chn.name}`;
+						}
+						return "#unknown-channel";
+					})
+					.replace(/<@!?([0-9]+)>/g, (_, id) => {
+						if (id == inetraction.user.id) return inetraction.user.username;
+						if (interaction.guild) {
+							const mem = interaction.guild.members.cache.get(id);
+							if (mem) return `@${mem.user.username}`;
+						}
+						return "@unknown-user";
+					})
+					.replace(/<:([a-zA-Z0-9_]+):([0-9]+)>/g, (_, name) => {
+						return `emoji:${name}:`;
+					})
+					.trim();
+				log(LogLevel.Debug, prompt)
+
+				const model = process.env.IMAGEMODEL;
+				const system = options.getString("system") || channel_system;
+				var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
+
+				await interaction.deferReply();
+				response = (await makeRequest("/api/generate", "post", {
+					model,
+					prompt,
+					system,
+					images: imagesb64
+				}));
+
+				if (typeof response != "string") {
+					log(LogLevel.Debug, response);
+					throw new TypeError("response is not a string, this may be an error with ollama");
+				}
+
+				response = response.split("\n").filter(e => !!e).map(e => {
+					return JSON.parse(e);
+				});
+			
+			let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
+			if (responseText.length == 0) {
+				responseText = "(No response)";
+				}; log(LogLevel.Debug, `Response: ${responseText}`);
+
+					await interaction.editReply({
+						content: `## Here is how your image was described <@${interaction.user.id}>\n-# Here is how ${process.env.IMAGEMODEL} has described: ${url}\n-# With the prompt: ${prompt}\n${responseText}`
+					});
+				
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /describe`)
+			break;
+		case "respond":
+			log(LogLevel.Debug, `Attempting to run /resond`)
+			try {
+				await interaction.deferReply()
+				try {
+					if (fs.existsSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)) {
+						var channel_system = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
+					} else { var channel_system = parseEnvString(process.env.SYSTEM) }
+				} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+				var channel_system = `${channel_system}`
+
+				try {
+					if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)) {
+						var init_prompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
+					} else { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
+				} catch { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
+				var init_prompt = `${init_prompt}\n\n`
+
+				try {
+					// context if the message is not a reply
+
+					if (context == null) {
+						if (fs.existsSync(`./cache/context/context-${interaction.channel.id}`)) {
+							context = JSON.parse(fs.readFileSync(`./cache/context/context-${interaction.channel.id}`, 'utf8'));
+						}
+						else {
+							context = [0, 0]
+						}
+					};
+				} catch { var context = [0, 0] }
+				var prompt = options.getString("prompt")
+				const botRole = interaction.guild?.members?.me?.roles?.botRole;
+				const myMention = new RegExp(`<@((!?${client.user.id}${botRole ? `)|(&${botRole.id}` : ""}))>`, "g");
+
+				prompt = prompt
+					.replace(myMention, "")
+					.replace(/<#([0-9]+)>/g, (_, id) => {
+						if (interaction.guild) {
+							const chn = interaction.guild.channels.cache.get(id);
+							if (chn) return `#${chn.name}`;
+						}
+						return "#unknown-channel";
+					})
+					.replace(/<@!?([0-9]+)>/g, (_, id) => {
+						if (id == inetraction.user.id) return inetraction.user.username;
+						if (interaction.guild) {
+							const mem = interaction.guild.members.cache.get(id);
+							if (mem) return `@${mem.user.username}`;
+						}
+						return "@unknown-user";
+					})
+					.replace(/<:([a-zA-Z0-9_]+):([0-9]+)>/g, (_, name) => {
+						return `emoji:${name}:`;
+					})
+					.trim();
+
+				var utctime = new Date().toUTCString();
+				var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" }); 
+				try { if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }; } catch { var currentutctime = `` };
+				try { if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }; } catch { var currentsystime = `` };
+				try { if (useUsername) { var UserUsername = `USERNAME OF DISCORD USER: ${interaction.user.username}\n`; } else { var UserUsername = `` }; } catch { var UserUsername = `` };
+				try { if (useUserID) { var UserID = `DISCORD USER-ID: ${interaction.user.id}\nDISCORD USER MENTION IS: <@${interaction.user.id}>\n`; } else { var UserID = `` }; } catch { var UserID = `` };
+				try { if (useChannelID) { var ChannelID = `DISCORD CHANNEL ID: ${interaction.channel.id}\n`; } else { var ChannelID = `` }; } catch { var ChannelID = `` };
+				try { if (useChannelname) { var ChannelName = `DISCORD SERVER CHANNEL NAME: #${interaction.channel.name}\n`; } else { var ChannelName = `` }; } catch { var ChannelName = `` };
+				try { if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${interaction.user.displayName}\n` } else { var Nickname = `` }; } catch { var Nickname = `` };
+
+			var prompt = `${init_prompt}${currentutctime}${currentsystime}${ChannelID}${ChannelName}${UserUsername}${UserID}${Nickname}\nMessage from user: ${prompt}` 
+			log(LogLevel.Debug, prompt)
+
+				const model = process.env.MODEL;
+				const system = options.getString("system") || channel_system;
+				var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
+
+				response = (await makeRequest("/api/generate", "post", {
+					model,
+					prompt,
+					system,
+					context
+				}));
+
+				if (typeof response != "string") {
+					log(LogLevel.Debug, response);
+					throw new TypeError("response is not a string, this may be an error with ollama");
+				}
+
+				response = response.split("\n").filter(e => !!e).map(e => {
+					return JSON.parse(e);
+				});
+
+				let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
+				if (responseText.length == 0) {
+					responseText = "(No response)";
+				}
+				log(LogLevel.Debug, `Response: ${responseText}`);
+
+				context = response.filter(e => e.done && e.context)[0].context;
+
+				try {
+					fs.writeFileSync(`./cache/context/context-${interaction.channel.id}`,
+
+						JSON.stringify(context), 'utf8',
+
+						function (err) {
+							if (err) {
+								logError(err);
+							}
+						}
+					);
+				}
+				catch (error) {
+					logError(`interaction.channel.id couldnt be found so context was not cached (However this is not an fatal error, no need to panic!)`)
+				}
+
+				await interaction.editReply({
+					content: `-# This is how ${process.env.MODEL} has responded with the prompt: ${options.getString("prompt")}\n${responseText}`
+				});
+
+
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /respond`)
+			break;
+		case "upscale":
+			log(LogLevel.Debug, `Attempting to run /upscale`)
+			try {
+
+				const attachment = options.getAttachment("image")
+				const url = attachment.url
+				var b64image = []
+				try {
+					log(LogLevel.Debug, `making rq to ${url}`);
+					const response = await axios.get(url, {
+						responseType: "text",
+						responseEncoding: "base64",
+					}
+					)
+					b64image = [
+						{
+							data: `${response.data}`,
+							name: "image"
+						}
+					]
+
+				} catch (error) {
+					log(LogLevel.Error, `Failed to download image files: ${error}`);
+					break; // Stop processing if file download fails
+				}
+
+				const show_extras_results = true;
+				const gfpgan_visibility = 0;
+				const codeformer_visibility = 0;
+				const codeformer_weight = 0;
+				const upscaling_crop = true;
+				const upscale_first = false;
+				const resize_mode = 0;
+				const init_images = b64image;     
+				const upscaling_resize = options.getNumber("multiplier"); 
+				const upscaler_1 = options.getString("upscaler_1") || "R-ESRGAN 4x+";    
+				const upscaler_2 = options.getString("upscaler_2") || "R-ESRGAN 4x+";     
+				const extras_upscaler_2_visibility = options.getNumber("upscaler_2_vis") || 1; 
+
+				await interaction.deferReply();
+				const fluxResponse = await makeFluxRequest(
+					"/sdapi/v1/extra-batch-images",
+					"post",
+					{
+						show_extras_results,
+						gfpgan_visibility,
+						codeformer_visibility,
+						codeformer_weight,
+						upscaling_crop,
+						upscale_first,
+						resize_mode,
+						upscaling_resize,
+						upscaler_1,
+						upscaler_2,
+						extras_upscaler_2_visibility,
+						imageList: init_images
+
+					}
+				);
+				const images = fluxResponse.images.map((image) =>
+					Buffer.from(image, "base64")
+				);
+				
+				var parametersresponse = `* High res upscale multiplier: ${upscaling_resize}\n* upscaler 1 ${upscaler_1}\n* upscaler 2 ${upscaler_2}\n* extras upscaler 2 visibility ${extras_upscaler_2_visibility}`
+				await interaction.editReply({
+					content: `## Here is your upscaled image <@${interaction.user.id}>\n-# Here is the scaled image from the image ${url} and the parameters:\n\`${parametersresponse}\``,
+					files: images
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /upscale`)
+			break;
+		case "setsysmsg":
+			log(LogLevel.Debug, `Attempting to run /setsysmsg`)
+			try {
+				const userdefinedsystemmessage = options.getString("sysmsg");
+				fs.writeFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, `${userdefinedsystemmessage}`)
+				var sysmsgresponse = `-# The system message has been set to \n"${userdefinedsystemmessage}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: sysmsgresponse
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /setsysmsg`)
+			break;
+		case "setinitprompt":
+			log(LogLevel.Debug, `Attempting to run /setinitprompt`)
+			try { 
+				const userdefinedinitprompt = options.getString("initprompt");
+				if (fs.existsSync()) {
+					fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, `${userdefinedinitprompt}`)
+				} else {
+					fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, `${userdefinedinitprompt}`)
+				}
+				var initpromptresponse = `-# The initial prompt has been set to \n"${userdefinedinitprompt}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: initpromptresponse
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /setinitprompt`)
+			break;
+		case "addsysmsg":
+			log(LogLevel.Debug, `Attempting to run /addsysmsg`)
+			try {
+				const userdefinedappendsystemmessage = options.getString("appendsysmsg");
+				fs.appendFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, ` ${userdefinedappendsystemmessage}`);
+				var appenededSYSmsg = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
+				var sysmsgresponse = `-# The system message has been set to \n"${appenededSYSmsg}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: sysmsgresponse
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /addsysmsg`)
+			break;
+		case "addinitprompt":
+			log(LogLevel.Debug, `Attempting to run /addinitprompt`)
+			try {
+				const userdefinedappendinitprompt = options.getString("appendinitprompt");
+				fs.appendFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, ` ${userdefinedappendinitprompt}`);
+				var appenededINITprompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
+				var initpromptresponse = `-# The initial prompt has been set to \n"${appenededINITprompt}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: initpromptresponse
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /addinitprompt`)
+			break;
+		case "resetsysmsg":
+			log(LogLevel.Debug, `Attempting to run /resetsysmsg`)
+			try {
+				fs.writeFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, parseEnvString(process.env.SYSTEM))
+				var sysmsgresponse = `-# The system message has been set to \n"${parseEnvString(process.env.SYSTEM)}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: sysmsgresponse
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /resetsysmsg`)
+			break;
+		case "resetinitprompt":
+			log(LogLevel.Debug, `Attempting to run /resetinitprompt`)
+			try { 
+				fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, parseEnvString(process.env.INITIAL_PROMPT));
+				var initpromptresponse = `-# The initial message has been set to \n"${parseEnvString(process.env.INITIAL_PROMPT)}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: initpromptresponse
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /resetinitprompt`)
+			break;
+		case "system":
+			log(LogLevel.Debug, `Attempting to run /system`)
+			try {
+				let readsystem = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
+				let systemsend = `-# Current System message is \n"${readsystem}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: systemsend
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /system`)
+			break;
+		case "initprompt":
+			log(LogLevel.Debug, `Attempting to run /initprompt`)
+			try {
+				if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)) {
+					var readinit = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
+				} else { var readinit = parseEnvString(process.env.INITIAL_PROMPT) }
+				let initsend = `-# Current initial prompt is \n"${readinit}"`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: initsend
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /initprompt`)
+			break;
+		case "addchannel":
+			log(LogLevel.Debug, `Attempting to run /addchannel`)
+			try {
+				if (interaction.guildId != null) {
+					if (fs.existsSync("./cache/channels")) {
+						var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
+					}
+					if (!channels.includes(`${interaction.channel.id}`)) {
+
+						channels += `,${interaction.channel.id}`
+
+						fs.writeFileSync(`./cache/channels`,
+
+							JSON.stringify(channels), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Added the channel <#${interaction.channel.id}>!`
+						})
+					} else {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Cannot add the channel <#${interaction.channel.id}> as it is already listed as a channel to use!`
+						})
+					}
+				} else {
+					await interaction.deferReply();
+					await interaction.editReply({
+						content: `You are not running this command inside a server!`
+					});
+				}
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /addchannel`)
+			break;
+		case "rmchannel":
+			log(LogLevel.Debug, `Attempting to run /rmchannel`)
+			try {
+				if (interaction.guildId != null) {
+					if (fs.existsSync("./cache/channels")) {
+						var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
+					}
+					if (channels.includes(`${interaction.channel.id}`)) {
+
+						channels = channels.replace(`,${interaction.channel.id}`, "")
+						channels = channels.replace(`${interaction.channel.id}`, "")
+
+
+						fs.writeFileSync(`./cache/channels`,
+
+							JSON.stringify(channels), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Removed the channel <#${interaction.channel.id}>!`
+						})
+					} else {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Cannot remove the channel <#${interaction.channel.id}> as it is already not listed as a channel to use!`
+						})
+					}
+				} else {
+					await interaction.deferReply();
+					await interaction.editReply({
+						content: `You are not running this command inside a server`
+					});
+				}
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /rmchannel`)
+			break;
+		case "help":
+			log(LogLevel.Debug, `Attempting to run /help`)
+			try {
+					await interaction.deferReply();
+					await interaction.editReply({
+						content: "Commands:\n- `/clear` Clears the context of a conversation in this channel.\n- `/help` This message!\n- `/ping` Measures ping to discord.\n- `/model` Shows the model currently being used.\n- `/system` `/resetsysmsg` `/addsystemmsg` `/setsystemmsg` System messages are tied to the channel or dm; System messages are the guidelines the bot must follow, for example I write \"you must write monkey at the end of every message\" it will write monkey at the end of every message.\n- `/initprompt` `/resetinitprompt` `/addinitprompt` `/setinitprompt` Initial prompts are tied to you, they are a way to tell the bot more about you if you feel if needs more context on you every message.\n- `/txt2img` `/img2img` Make images from text or from exsisting images. \n `/upscale` Upscale an image.\n- `/describe` Have an llm describe an image. \n- `/respond` Speak to the LLM as if you were to @mention the app in a channel it is allowed to speak inside.\n\n Write in this DM/Channel to speak to me."
+					});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /help`)
+			break;
+		case "clear":
+			log(LogLevel.Debug, `Attempting to run /clear`)
+			try {
+				if ((interaction.channel.id) == null) {
+					try {
+						await interaction.editReply({
+							content: `Cannot clear message history as the bot cannot read interaction.channel.id`
+						})
+					} catch (error) {
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Cannot clear message history as the bot cannot read interaction.channel.id` 
+							});
+						} catch (error) {
+							logError(error);
+						}
+					}
+				} else {
+					if (fs.existsSync(`./cache/context/context-${interaction.channel.id}`)) {
+						fs.rmSync(`./cache/context/context-${interaction.channel.id}`)
+						if (interaction.guildId != null) {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Cleared recent message history in <#${interaction.channel.id}>!`
+
+							})
+						} else {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Cleared recent message history!`
+
+							})
+						}
+					} else {
+						if (interaction.guildId != null) {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Cannot clear message history since there is none in <#${interaction.channel.id}>!`
+							})
+
+						} else {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Cannot clear message history!`
+							})
+
+						}
+					}
+				}
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /clear`)
+			break;
+		case "model":
+			log(LogLevel.Debug, `Attempting to run /model`)
+			try {
+				var curentmodel = `Conversation model : ${process.env.MODEL}\n-# Multi-Vision Model : ${process.env.IMAGEMODEL}`;
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: `Current models:\n${curentmodel}`
+				});
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /model`)
+			break;
+		case "ping":
+			log(LogLevel.Debug, `Attempting to run /ping`)
+			try {
+				await interaction.deferReply();
+				const reply = await interaction.fetchReply();
+				const ping = reply.createdTimestamp - interaction.createdTimestamp;
+				interaction.editReply(`Pong!\n-# ${ping}ms`);
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /ping`)
+			break;
+
 	}
 });
 
