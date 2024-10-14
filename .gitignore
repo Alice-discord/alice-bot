@@ -5,3 +5,6 @@ node_modules/
 .env
 .vscode/
 cache
+Start(ONLY-OLLAMA).bat
+modelfile
+StartNPM.bat
