@@ -19,6 +19,13 @@ const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { MessageEmbed } = require('discord.js');
 
+
+//I know its not the best practice but i need this thing to not crash every two minutes
+process.on('uncaughtException', function (err) {
+	console.error(err);
+	console.log("Node NOT Exiting...");
+  });
+
 dotenv.config();
 
 if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
@@ -963,11 +970,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 				await interaction.editReply({
 					embeds: [responseEmbed],
-				}).then(() => {
+				}).then(() => {try{
 					interaction.followUp({
 						content: `Image after processing`,
 						files: images
 					});
+			} catch (error) { logError(error)}
 				});
 
 			} catch (error) {
@@ -1109,10 +1117,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 				await interaction.editReply({
 					embeds: [responseEmbed],
-				}).then(() => {
+				}).then(() => {try{
 					interaction.followUp({
-						content: `${responseText}`,
+						content: `${responseText}`
 					});
+			} catch (error) { logError(error)}
 				});
 
 				
@@ -1275,10 +1284,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 				await interaction.editReply({
 					embeds: [responseEmbed],
-				}).then(() => {
+				}).then(() => {try{
 					interaction.followUp({
-						content: `${responseText}`,
+						content: `${responseText}`
 					});
+			} catch (error) { logError(error)}
 				});
 
 			} catch (error) {
@@ -1414,14 +1424,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				};
 			
 
+				
 				await interaction.editReply({
 					embeds: [responseEmbed],
-				}).then(() => {
+				}).then(() => {try{
 					interaction.followUp({
 						content: `Image after processing`,
 						files: images
 					});
-				});
+			} catch (error) { logError(error)}
+		});
 
 
 			} catch (error) {

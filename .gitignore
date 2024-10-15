@@ -8,3 +8,4 @@ cache
 Start(ONLY-OLLAMA).bat
 modelfile
 StartNPM.bat
+errors
