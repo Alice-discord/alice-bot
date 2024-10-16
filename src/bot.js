@@ -32,6 +32,12 @@ dotenv.config();
 
 if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
 if (!fs.existsSync("./cache/channels")) { fs.writeFileSync("./cache/channels", JSON.stringify(process.env.CHANNELS), 'utf8') }; 
+if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
+if (!fs.existsSync("./cache/context")) { fs.mkdirSync("./cache/context") };
+if (!fs.existsSync("./cache/initial-prompt")) { fs.mkdirSync("./cache/initial-prompt") };
+if (!fs.existsSync("./cache/system-message")) { fs.mkdirSync("./cache/system-message") };
+if (!fs.existsSync(`./cache/welcomemessageboolean`)) {fs.mkdirSync("./cache/welcomemessageboolean")};
+
 
 const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
 const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
@@ -321,10 +327,6 @@ client.on(Events.MessageCreate, async message => {
 
 
 		//Make sure the directories and files to store content for bot function exsist
-		if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
-		if (!fs.existsSync("./cache/context")) { fs.mkdirSync("./cache/context") };
-		if (!fs.existsSync("./cache/initial-prompt")) { fs.mkdirSync("./cache/initial-prompt") };
-		if (!fs.existsSync("./cache/system-message")) { fs.mkdirSync("./cache/system-message") };
 		if (!fs.existsSync(`./cache/system-message/system-message-${message.channel.id}.txt`)) { fs.writeFileSync(`./cache/system-message/system-message-${message.channel.id}.txt`, parseEnvString(process.env.SYSTEM)) }
 		if (!fs.existsSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`)) { fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`, parseEnvString(process.env.INITIAL_PROMPT)) }
 
@@ -515,26 +517,43 @@ client.on(Events.MessageCreate, async message => {
 });
 if (welcomeuser) {
 	client.on('guildMemberAdd', async member => {
+		if (fs.existsSync(`./cache/welcomemessageboolean/${member.guild.id}`)) {
+		if (getBoolean(fs.readFileSync(`./cache/welcomemessageboolean/${member.guild.id}`))) {
 		try {
 
+			var dmchannel = await member.createDM()
+
+			log(LogLevel.Debug, dmchannel.id)
+
 			try {
-				if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)) {
-					var init_prompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
+				if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${member.id}.txt`)) {
+					var init_prompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${member.id}.txt`)
 				} else { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
 			} catch { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
 			var init_prompt = `${init_prompt}\n\n`
 
+			try {
+				if (fs.existsSync(`./cache/system-message/system-message-${dmchannel.id}.txt`)) {
+					var channel_system = fs.readFileSync(`./cache/system-message/system-message-${dmchannel.id}.txt`)
+				} else { var channel_system = parseEnvString(process.env.SYSTEM) }
+			} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+			var channel_system = `${channel_system}`
+
 			var prompt = `Write a welcome message to the discord user ${member.displayName}, they just joined the server ${member.guild.name}!`; 
 			const model = process.env.MODEL; 
-			const system = `You write welcoming messages for the discord server ${member.guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${parseEnvString(process.env.SYSTEM)}`; 
+			const system = `You write welcoming messages for the discord server ${member.guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`; 
 			var utctime = new Date().toUTCString();
 			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
 			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
 			if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
+			if (useChannelID) { var ChannelID = `DISCORD CHANNEL ID: ${dmchannel.id}\n`; if (dmchannel.guild != null) { var ChannelID = + `DISCORD CHANNEL MENTION: <#${dmchannel.id}>\n` } } else { var ChannelID = `` }
+			if (useChannelname) { var ChannelName = `DISCORD SERVER CHANNEL NAME: #${dmchannel.name}\n`; } else { var ChannelName = `` }
+			if (useChannelname) { if (dmchannel.guild == null) { var ChannelName = `Direct-message with the user ${member.displayName}\n`; } }
 			if (useUserID) { var UserID = `DISCORD USER-ID: ${member.id}\nDISCORD USER MENTION IS: <@${member.id}>\n`; } else { var UserID = `` }
 			if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${member.displayName}\n` } else { var Nickname = `` };
-			var prompt = `${init_prompt}\n${currentsystime}${currentutctime}${Nickname}${UserID}${prompt}`
+			var prompt = `${init_prompt}${currentsystime}${ChannelName}${ChannelID}${currentutctime}${Nickname}${UserID}${prompt}`
 			log(LogLevel.Debug, prompt)
+			log(LogLevel.Debug, `SYSTEM MESSAGE\n${system}`)
 
 			var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
 			response = (await makeRequest("/api/generate", "post", {
@@ -560,14 +579,26 @@ if (welcomeuser) {
 			member.send(`-# This message was generated by an LLM\n-# You may learn how to use this bot in this dm by writing /help\n-# You may also dm this bot and it will respond\n${responseText}`)
 		} catch (error) {
 			logError(error);
-		}
-	});
-}
+					}
+				}
+			} else {
+
+					fs.writeFileSync(`./cache/welcomemessageboolean/${member.guild.id}`, `false`)
+
+				}
+			
+			} 
+
+		);
+
+	}
 
 if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
 	client.on('guildCreate', async guild => {
 		try {
 	
+			fs.writeFileSync(`./cache/welcomemessageboolean/${guild.id}`, `false`)
+
 			const channelG = guild.channels.cache.find(c =>
 				c.type === ChannelType.GuildText &&
 				c.permissionsFor(guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
@@ -2526,8 +2557,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				log(LogLevel.Debug, `Attempting to run /website`)
 				try {
 					await interaction.deferReply();
-					const reply = await interaction.fetchReply();
-					const ping = reply.createdTimestamp - interaction.createdTimestamp;
 					
 					var responseEmbed = {
 						color: 0xE42831,
@@ -2569,6 +2598,198 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				}
 				log(LogLevel.Debug, `Finished responding to /website`)
 				break;
+				case "enablewelcome":
+					log(LogLevel.Debug, `Attempting to run /enablewelcome`)
+					if (fs.existsSync(`./cache/welcomemessageboolean/${interaction.guild.id}`)) {
+					if (!getBoolean(fs.readFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`))){
+					try {
+						await interaction.deferReply();
+
+						try {
+							fs.writeFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`, `true`)
+						} catch (error) {
+							logError(error)
+						}
+
+						var responseEmbed = {
+							color: 0xE42831,
+							title: 'Enabling welcome message to members!',
+							author: {
+								name: 'Alice',
+								url: 'https://ethmangameon.github.io/alice-app/home.html',
+							},
+							description: `You are Enabling the welcome message to new members that join this Guild!`,
+							thumbnail: {
+								url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+							},
+							timestamp: new Date().toISOString(),
+							footer: {
+								text: `Enabled welcome`,
+								icon_url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+							},
+						};
+					
+						await interaction.editReply({
+							embeds: [responseEmbed],
+						})
+					} catch (error) {
+						logError(error);
+						try {
+							await interaction.editReply({
+								content: `Error, please check the console | OVERIDE: ${error}`
+							});
+						} catch {
+							try {
+								await interaction.deferReply();
+								await interaction.editReply({
+									content: `Error, please check the console | OVERIDE: ${error}`
+								});
+							} catch (error) {
+								logError(error);
+							}
+						}
+					}
+				} else {
+					try {
+					await interaction.deferReply();
+					var responseEmbed = {
+						color: 0xE42831,
+						title: 'Enabling welcome message to members!',
+						author: {
+							name: 'Alice',
+							url: 'https://ethmangameon.github.io/alice-app/home.html',
+						},
+						description: `You cannot enable welcome messages as they are already enabled!`,
+						thumbnail: {
+							url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+						},
+						timestamp: new Date().toISOString(),
+						footer: {
+							text: `Enabled welcome`,
+							icon_url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+						},
+					};
+				
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
+				} catch (error) {
+					logError(error);
+					try {
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch {
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Error, please check the console | OVERIDE: ${error}`
+							});
+						} catch (error) {
+							logError(error);
+						}
+					}
+				}
+			}
+		}
+					log(LogLevel.Debug, `Finished responding to /enablewelcome`)
+					break;
+					case "disablewelcome":
+						log(LogLevel.Debug, `Attempting to run /disablewelcome`)
+						if (fs.existsSync(`./cache/welcomemessageboolean/${interaction.guild.id}`)) {
+							if (getBoolean(fs.readFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`))){
+							try {
+								await interaction.deferReply();
+		
+								try {
+									fs.writeFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`, `false`)
+								} catch (error) {
+									logError(error)
+								}
+		
+								var responseEmbed = {
+									color: 0xE42831,
+									title: 'Disabling welcome message to members!',
+									author: {
+										name: 'Alice',
+										url: 'https://ethmangameon.github.io/alice-app/home.html',
+									},
+									description: `You are Disabling the welcome message to new members that join this Guild!`,
+									thumbnail: {
+										url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+									},
+									timestamp: new Date().toISOString(),
+									footer: {
+										text: `Disabled welcome`,
+										icon_url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+									},
+								};
+							
+								await interaction.editReply({
+									embeds: [responseEmbed],
+								})
+							} catch (error) {
+								logError(error);
+								try {
+									await interaction.editReply({
+										content: `Error, please check the console | OVERIDE: ${error}`
+									});
+								} catch {
+									try {
+										await interaction.deferReply();
+										await interaction.editReply({
+											content: `Error, please check the console | OVERIDE: ${error}`
+										});
+									} catch (error) {
+										logError(error);
+									}
+								}
+							}
+						} else {
+							try {
+								await interaction.deferReply();
+								var responseEmbed = {
+									color: 0xE42831,
+									title: 'Disabling welcome message to members!',
+									author: {
+										name: 'Alice',
+										url: 'https://ethmangameon.github.io/alice-app/home.html',
+									},
+									description: `You are cannot disable welcome messages as they are already disabled for this Guild!`,
+									thumbnail: {
+										url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+									},
+									timestamp: new Date().toISOString(),
+									footer: {
+										text: `Disabled welcome`,
+										icon_url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+									},
+								};
+						
+							await interaction.editReply({
+								embeds: [responseEmbed],
+							})
+						} catch (error) {
+							logError(error);
+							try {
+								await interaction.editReply({
+									content: `Error, please check the console | OVERIDE: ${error}`
+								});
+							} catch {
+								try {
+									await interaction.deferReply();
+									await interaction.editReply({
+										content: `Error, please check the console | OVERIDE: ${error}`
+									});
+								} catch (error) {
+									logError(error);
+								}
+							}
+						}
+					}
+				}
+						log(LogLevel.Debug, `Finished responding to /disablewelcome`)
+						break;
 	
 	}
 });
