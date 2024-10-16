@@ -21,7 +21,9 @@ import website from "./website.js";
 import enablewelcome from "./enablewelcome.js";
 import disablewelcome from "./disablewelcome.js";
 import setwelcomesysmsg from "./setwelcomesysmsg.js";
+import reply from "./reply.js";
+import insultuser from "./pettyinsult.js";
 
-const commandsArray = [setsysmsg, text2img, setinitprompt, addinitprompt, addsysmsg, resetsysmsg, resetinitprompt, system, initprompt, help, model, ping, img2img, describe, upscale, addchannel, rmchannel, clear, respond, website, enablewelcome, disablewelcome, setwelcomesysmsg];
+const commandsArray = [setsysmsg, text2img, setinitprompt, addinitprompt, addsysmsg, resetsysmsg, resetinitprompt, system, initprompt, help, model, ping, img2img, describe, upscale, addchannel, rmchannel, clear, respond, website, enablewelcome, disablewelcome, setwelcomesysmsg, reply, insultuser];
 
 export default commandsArray;
