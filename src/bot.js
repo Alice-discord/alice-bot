@@ -2270,6 +2270,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							value: `Display the current website for the bot.`,
 						},
 						{
+							name: '/enablewelcome',
+							value: `Allows you to enable welcome messages for new users.`,
+						},
+						{
+							name: '/disablewelcome',
+							value: `Allows you to disable welcome messages for new users.`,
+						},
+						{
 							name: 'System messages',
 							value: `System messages are tied to channel ID's; they are guidelines for a bot to follow, for example if i wrote you must respond as chewbacca the bot would try its best to follow those guidelines!`,
 						},
