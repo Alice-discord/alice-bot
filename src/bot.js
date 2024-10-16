@@ -6,10 +6,10 @@ import {
 	GatewayIntentBits,
 	MessageType,
 	Partials,
-	PermissionsBitField,
 	REST,
 	Routes,
 	ChannelType,
+	PermissionsBitField,
 	ActivityType
 } from "discord.js";
 import { Logger, LogLevel } from "meklog";
@@ -157,18 +157,9 @@ const client = new Client({
 	intents: [
 		GatewayIntentBits.Guilds,
 		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.GuildMembers,
 		GatewayIntentBits.DirectMessages,
-        GatewayIntentBits.GuildMessageReactions,
-        GatewayIntentBits.GuildMessageTyping,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildPresences,
-        GatewayIntentBits.GuildInvites,
-        GatewayIntentBits.GuildEmojisAndStickers,
-        GatewayIntentBits.GuildIntegrations,
-        GatewayIntentBits.GuildWebhooks,
-        GatewayIntentBits.GuildMessageReactions,
-        GatewayIntentBits.GuildMessageTyping,
-        GatewayIntentBits.MessageContent,
+		GatewayIntentBits.MessageContent
 	],
 	allowedMentions: { users: [], roles: [], repliedUser: false },
 	partials: [
@@ -572,120 +563,120 @@ if (welcomeuser) {
 }
 
 if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
-client.on('guildCreate', async guild => {
-	try {
-
-		const channelG = guild.channels.cache.find(c =>
-			c.type === ChannelType.GuildText &&
-			c.permissionsFor(guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
-		)
+	client.on('guildCreate', async guild => {
+		try {
 	
-		try {
-			if (fs.existsSync(`./cache/system-message/system-message-${channelG.id}.txt`)) {
-				var channel_system = fs.readFileSync(`./cache/system-message/system-message-${channelG.id}.txt`)
-			} else { var channel_system = parseEnvString(process.env.SYSTEM) }
-		} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
-		var channel_system = `${channel_system}`
-
-		try {
-			// context if the message is not a reply
-
-			if (context == null) {
-				if (fs.existsSync(`./cache/context/context-${channelG.id}`)) {
-					context = JSON.parse(fs.readFileSync(`./cache/context/context-${channelG.id}`, 'utf8'));
-				}
-				else {
-					context = [0, 0]
-				}
-			};
-		} catch { var context = [0, 0] }
-
-		var prompt = `Write a message to introduce yourself in the new discord server you were invited to and joined ${guild.name}`;
-		const model = process.env.MODEL;
-		const system = `You write a Message to introduce yourself in ${guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`;
-		var utctime = new Date().toUTCString();
-		var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
-		if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
-		if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
-		var prompt = `\n${currentsystime}${currentutctime}${prompt}`
-		log(LogLevel.Debug, prompt)
-
-		var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
-		response = (await makeRequest("/api/generate", "post", {
-			model,
-			prompt,
-			system,
-			context
-		}));
-
-		if (typeof response != "string") {
-			log(LogLevel.Debug, response);
-			throw new TypeError("response is not a string, this may be an error with ollama");
-		}
-
-		response = response.split("\n").filter(e => !!e).map(e => {
-			return JSON.parse(e);
-		});
-
-		let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-		if (responseText.length == 0) {
-			responseText = "(No response)";
-		}
-
-
-
-
-		try {
-			if (fs.existsSync("./cache/channels")) {
-				var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
+			const channelG = guild.channels.cache.find(c =>
+				c.type === ChannelType.GuildText &&
+				c.permissionsFor(guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
+			)
+		
+			try {
+				if (fs.existsSync(`./cache/system-message/system-message-${channelG.id}.txt`)) {
+					var channel_system = fs.readFileSync(`./cache/system-message/system-message-${channelG.id}.txt`)
+				} else { var channel_system = parseEnvString(process.env.SYSTEM) }
+			} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+			var channel_system = `${channel_system}`
+	
+			try {
+				// context if the message is not a reply
+	
+				if (context == null) {
+					if (fs.existsSync(`./cache/context/context-${channelG.id}`)) {
+						context = JSON.parse(fs.readFileSync(`./cache/context/context-${channelG.id}`, 'utf8'));
+					}
+					else {
+						context = [0, 0]
+					}
+				};
+			} catch { var context = [0, 0] }
+	
+			var prompt = `Write a message to introduce yourself in the new discord server you were invited to and joined ${guild.name}`;
+			const model = process.env.MODEL;
+			const system = `You write a Message to introduce yourself in ${guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`;
+			var utctime = new Date().toUTCString();
+			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
+			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
+			if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
+			var prompt = `\n${currentsystime}${currentutctime}${prompt}`
+			log(LogLevel.Debug, prompt)
+	
+			var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
+			response = (await makeRequest("/api/generate", "post", {
+				model,
+				prompt,
+				system,
+				context
+			}));
+	
+			if (typeof response != "string") {
+				log(LogLevel.Debug, response);
+				throw new TypeError("response is not a string, this may be an error with ollama");
 			}
-			if (!channels.includes(`${channelG.id}`)) {
-
-				channels += `,${channelG.id}`
-
-				fs.writeFileSync(`./cache/channels`,
-
-					JSON.stringify(channels), 'utf8',
-
+	
+			response = response.split("\n").filter(e => !!e).map(e => {
+				return JSON.parse(e);
+			});
+	
+			let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
+			if (responseText.length == 0) {
+				responseText = "(No response)";
+			}
+	
+	
+	
+	
+			try {
+				if (fs.existsSync("./cache/channels")) {
+					var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
+				}
+				if (!channels.includes(`${channelG.id}`)) {
+	
+					channels += `,${channelG.id}`
+	
+					fs.writeFileSync(`./cache/channels`,
+	
+						JSON.stringify(channels), 'utf8',
+	
+						function (err) {
+							if (err) {
+								logError(err)('Crap happens');
+							}
+						}
+					);
+				}
+			} catch (error) {
+				logError(error);
+			}
+	
+			context = response.filter(e => e.done && e.context)[0].context;
+	
+			try {
+				fs.writeFileSync(`./cache/context/context-${channelG.id}`,
+	
+					JSON.stringify(context), 'utf8',
+	
 					function (err) {
 						if (err) {
-							logError(err)('Crap happens');
+							logError(err);
 						}
 					}
 				);
 			}
-		} catch (error) {
-			logError(error);
-		}
-
-		context = response.filter(e => e.done && e.context)[0].context;
-
-		try {
-			fs.writeFileSync(`./cache/context/context-${channelG.id}`,
-
-				JSON.stringify(context), 'utf8',
-
-				function (err) {
-					if (err) {
-						logError(err);
-					}
-				}
-			);
-		}
-		catch (error) {
-			logError(error)
-		}
-
-
-		try {
-			await channelG.send(`# Please contact <@635136583078772754> if you have any issues!\n## Hello my name is ${client.user.username}, type \`/help\` to view my commands.\n### In order to enable my features in a channel please use \`/addchannel\` (I have added myself to this channel) then use <@${client.user.id}> to mention me with your message.\n-# This response is generated by AI\n${responseText}`
-			)
-		} catch (error) {
-			logError(error);
-		}
-	} catch (error) { logError(error); }
-	}); 
-}
+			catch (error) {
+				logError(error)
+			}
+	
+	
+			try {
+				await channelG.send(`# Please contact <@635136583078772754> and you can go to the [website for alice](https://ethmangameon.github.io/alice-app/home.html) or the [support server](https://discord.gg/RwZd3T8vde) if you have any issues!\n## Hello my name is ${client.user.username}, type \`/help\` to view my commands.\n### In order to enable my features in a channel please use \`/addchannel\` (I have added myself to this channel) then use <@${client.user.id}> to mention me with your message.\n-# This response is generated by AI\n${responseText}`
+				)
+			} catch (error) {
+				logError(error);
+			}
+		} catch (error) { logError(error); }
+		}); 
+	}
 
 
 client.on(Events.InteractionCreate, async (interaction) => {
