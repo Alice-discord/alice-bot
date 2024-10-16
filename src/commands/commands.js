@@ -20,7 +20,8 @@ import respond from "./respond.js";
 import website from "./website.js";
 import enablewelcome from "./enablewelcome.js";
 import disablewelcome from "./disablewelcome.js";
+import setwelcomesysmsg from "./setwelcomesysmsg.js";
 
-const commandsArray = [setsysmsg, text2img, setinitprompt, addinitprompt, addsysmsg, resetsysmsg, resetinitprompt, system, initprompt, help, model, ping, img2img, describe, upscale, addchannel, rmchannel, clear, respond, website, enablewelcome, disablewelcome];
+const commandsArray = [setsysmsg, text2img, setinitprompt, addinitprompt, addsysmsg, resetsysmsg, resetinitprompt, system, initprompt, help, model, ping, img2img, describe, upscale, addchannel, rmchannel, clear, respond, website, enablewelcome, disablewelcome, setwelcomesysmsg];
 
 export default commandsArray;

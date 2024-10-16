@@ -37,6 +37,7 @@ if (!fs.existsSync("./cache/context")) { fs.mkdirSync("./cache/context") };
 if (!fs.existsSync("./cache/initial-prompt")) { fs.mkdirSync("./cache/initial-prompt") };
 if (!fs.existsSync("./cache/system-message")) { fs.mkdirSync("./cache/system-message") };
 if (!fs.existsSync(`./cache/welcomemessageboolean`)) {fs.mkdirSync("./cache/welcomemessageboolean")};
+if (!fs.existsSync(`./cache/welcomemessagesystem`)) {fs.mkdirSync("./cache/welcomemessagesystem")};
 
 
 const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
@@ -541,7 +542,7 @@ if (welcomeuser) {
 
 			var prompt = `Write a welcome message to the discord user ${member.displayName}, they just joined the server ${member.guild.name}!`; 
 			const model = process.env.MODEL; 
-			const system = `You write welcoming messages for the discord server ${member.guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`; 
+			var system = `You write welcoming messages for the discord server ${member.guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`; 
 			var utctime = new Date().toUTCString();
 			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
 			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
@@ -554,6 +555,11 @@ if (welcomeuser) {
 			var prompt = `${init_prompt}${currentsystime}${ChannelName}${ChannelID}${currentutctime}${Nickname}${UserID}${prompt}`
 			log(LogLevel.Debug, prompt)
 			log(LogLevel.Debug, `SYSTEM MESSAGE\n${system}`)
+
+			if (fs.existsSync(`./cache/welcomemessagesystem/${member.guild.id}`)){
+				var guildsys = fs.readFileSync(`./cache/welcomemessagesystem/${member.guild.id}`)
+				var system = `You write welcoming messages for the discord server ${member.guild.name}.\n${guildsys}`
+			} 
 
 			var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
 			response = (await makeRequest("/api/generate", "post", {
@@ -2806,6 +2812,61 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				}
 						log(LogLevel.Debug, `Finished responding to /disablewelcome`)
 						break;
+						case "setwelcomesysmsg":
+			log(LogLevel.Debug, `Attempting to run /setwelcomesysmsg`)
+			try {
+				
+				 fs.writeFileSync(`./cache/welcomemessagesystem/${interaction.guild.id}`, options.getString("sysmsg"))
+					
+
+				var responseEmbed = {
+					color: 0xE42831,
+					title: 'Set the welcome system message',
+					author: {
+						name: 'Alice',
+						url: 'https://ethmangameon.github.io/alice-app/home.html',
+					},
+					description: `You are setting the welcome system message.`,
+					thumbnail: {
+						url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+					},
+					fields: [
+						{
+							name: 'You have set the welcome system message for new users to.',
+							value: `"${options.getString("sysmsg")}"`,
+						}
+					],
+					timestamp: new Date().toISOString(),
+					footer: {
+						text: `Set welcome system`,
+						icon_url: 'https://ethmangameon.github.io/alice-app/Images/icon.png',
+					},
+				};
+			
+				await interaction.deferReply();
+				await interaction.editReply({
+					embeds: [responseEmbed],
+				})
+
+			} catch (error) {
+				logError(error);
+				try {
+					await interaction.editReply({
+						content: `Error, please check the console | OVERIDE: ${error}`
+					});
+				} catch {
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch (error) {
+						logError(error);
+					}
+				}
+			}
+			log(LogLevel.Debug, `Finished responding to /setwelcomesysmsg`)
+			break;
 	
 	}
 });
