@@ -2753,7 +2753,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							name: 'Alice',
 							url: 'https://ethmangameon.github.io/alice-app/',
 						},
-						description: `https://ethmangameon.github.io/alice-app/index.html`,
+						description: `My [website link is here](https://ethmangameon.github.io/alice-app/index.html)\nAlso consider voting/reviewing (for) me on [top.gg](https://top.gg/bot/1292925303211163738)`,
 						thumbnail: {
 							url: 'https://ethmangameon.github.io/alice-app/images/icon.png',
 						},
