@@ -31,7 +31,9 @@ process.on('uncaughtException', function (err) {
 dotenv.config();
 
 if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
-if (!fs.existsSync("./cache/channels")) { fs.writeFileSync("./cache/channels", JSON.stringify(process.env.CHANNELS), 'utf8') }; 
+if (!fs.existsSync("./cache/channels")) { fs.writeFileSync("./cache/channels", JSON.stringify(`,${process.env.CHANNELS}`), 'utf8')}; 
+if (!fs.existsSync(`./cache/blockedguilds`)) {fs.writeFileSync(`./cache/blockedguilds`, JSON.stringify(`,${process.env.BLOCKED_GUILDS}`, `utf8`))};
+if (!fs.existsSync(`./cache/blockedusers`)) {fs.writeFileSync(`./cache/blockedusers`, JSON.stringify(`,${process.env.BLOCKED_USERS}`, `utf8`))};
 if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
 if (!fs.existsSync("./cache/context")) { fs.mkdirSync("./cache/context") };
 if (!fs.existsSync("./cache/initial-prompt")) { fs.mkdirSync("./cache/initial-prompt") };
@@ -336,9 +338,61 @@ client.on(Events.MessageCreate, async message => {
 
 		if (message.type == MessageType.Default && (requiresMention && message.guild && !message.content.match(myMention))) return;
 
+		if (fs.existsSync(`./cache/blockedusers`)) {
+			var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+		}
+
+		if (blockedUsers.includes(`${message.author.id}`)) {
+
+			try {
+	
+				let blockedUsermsg = `You (${message.author.username} - ${message.author.displayName} - ${message.author.id} - <@${message.author.id}>) have been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+				await message.reply(blockedUsermsg);
+				log(LogLevel.Debug, `Sent message "${blockedUsermsg}"`)
+				} catch (error) {
+				logError(error);
+			}
+
+			return
+		} 
+
+		
 		if (message.guild) {
 			await message.guild.channels.fetch();
 			await message.guild.members.fetch();
+
+			if (fs.existsSync(`./cache/blockedguilds`)) {
+				var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+			}
+		
+			if (blockedGuilds.includes(`${message.guild.id}`)) {
+					
+				log(LogLevel.Debug, `Message sent in an guild that is blocked!! (${message.guild.name} - ${message.guild.id})`)
+		
+				try {
+					const channelG = message.guild.channels.cache.find(c =>
+						c.type === ChannelType.GuildText &&
+						c.permissionsFor(message.guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
+					)
+		
+					let responseLeavemsg = `This guild (${message.guild.name} - ${message.guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+					await channelG.send(responseLeavemsg);
+					log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
+					} catch (error) {
+					logError(error);
+				}
+		
+				try {
+				message.guild.leave();
+				log(LogLevel.Debug, `Left the guild (${message.guild.name} - ${message.guild.id})`)
+				} catch (error) {
+					logError(error);
+				}
+	
+				return
+	
+			}
+
 		}
 
 		userInput = userInput
@@ -516,8 +570,21 @@ client.on(Events.MessageCreate, async message => {
 		logError(error);
 	}
 });
+
+
 if (welcomeuser) {
 	client.on('guildMemberAdd', async member => {
+
+		if (fs.existsSync(`./cache/blockedusers`)) {
+			var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+		}
+
+		if (blockedUsers.includes(`${member.id}`)) {
+
+		} else {
+
+
+
 		if (fs.existsSync(`./cache/welcomemessageboolean/${member.guild.id}`)) {
 		if (getBoolean(fs.readFileSync(`./cache/welcomemessageboolean/${member.guild.id}`))) {
 		try {
@@ -594,13 +661,44 @@ if (welcomeuser) {
 				}
 			
 			} 
+		}
 
-		);
+	);
 
-	}
+}
 
-if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
 	client.on('guildCreate', async guild => {
+		if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
+			
+	
+		if (fs.existsSync(`./cache/blockedguilds`)) {
+			var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+		}
+
+		if (blockedGuilds.includes(`${guild.id}`)) {
+			
+			log(LogLevel.Debug, `Joined a guild that is blocked!! (${guild.name} - ${guild.id})`)
+
+			try {
+				const channelG = guild.channels.cache.find(c =>
+					c.type === ChannelType.GuildText &&
+					c.permissionsFor(guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
+				)
+			
+				await channelG.sendTyping();
+
+				let responseLeavemsg = `This guild (${guild.name} - ${guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+				await channelG.send(responseLeavemsg);
+				log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
+				} catch (error) {
+				logError(error);
+			}
+
+			guild.leave();
+			log(LogLevel.Debug, `Left the guild (${guild.name} - ${guild.id})`)
+
+		} else { 
+
 		try {
 	
 			fs.writeFileSync(`./cache/welcomemessageboolean/${guild.id}`, `false`)
@@ -716,20 +814,73 @@ if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
 				logError(error);
 			}
 		} catch (error) { logError(error); }
-		}); 
-	}
-
+		}}}); 
 
 client.on(Events.InteractionCreate, async (interaction) => {
 	if (!interaction.isCommand()) return;
+	const { commandName, options } = interaction;
+
+	if (fs.existsSync(`./cache/blockedguilds`)) {
+		var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+	}
+
+	if (!interaction.guild) {var interactionGuildID = `100000000000000000`} else {var interactionGuildID = interaction.guild.id}
+
+	if (blockedGuilds.includes(`${interactionGuildID}`)) {
+			
+		log(LogLevel.Debug, `Interaction ran in an guild that is blocked!! (${interaction.guild.name} - ${interaction.guild.id})`)
+
+		try {
+			const channelG = interaction.guild.channels.cache.find(c =>
+				c.type === ChannelType.GuildText &&
+				c.permissionsFor(interaction.guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
+			)
+		
+			await channelG.sendTyping();
+
+			let responseLeavemsg = `This guild (${interaction.guild.name} - ${interaction.guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+			await channelG.send(responseLeavemsg);
+			log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
+			} catch (error) {
+			logError(error);
+		}
+
+		try {
+		interaction.guild.leave();
+		log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+		} catch (error) {
+			logError(error);
+		}
+
+	} else {
+
+		if (fs.existsSync(`./cache/blockedusers`)) {
+			var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+		}
+
+		if (blockedUsers.includes(`${interaction.user.id}`)) {
+
+			try {
+	
+				let blockedUsermsg = `You (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} - <@${interaction.user.id}>) have been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+				await interaction.deferReply();
+				await interaction.editReply({
+					content: blockedUsermsg
+				})
+				log(LogLevel.Debug, `Sent message "${blockedUsermsg}"`)
+				} catch (error) {
+				logError(error);
+			}
+
+		} else {
+		
+
 
 	const embedLink = `${process.env.EMBED_LINK}`;
 	const embedThumb = `${process.env.THUNMBNAIL_EMBED_LINK}`;
 	const embedName = `${process.env.EMBED_NAME}`;
 	const embedIcon = `${process.env.EMBED_FOOTER_ICON}`;
 	const embedColor = Number(process.env.EMBED_COLOR)
-
-	const { commandName, options } = interaction;
 
 	switch (commandName) {
 		case "text2img":
@@ -3040,6 +3191,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			log(LogLevel.Debug, `Finished responding to /setwelcomesysmsg`)
 			break;
 	}
-});
+}}});
 
 client.login(process.env.TOKEN);
