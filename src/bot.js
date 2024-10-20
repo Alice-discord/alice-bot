@@ -473,17 +473,21 @@ client.on(Events.MessageCreate, async message => {
 			};
 
 			// Adding additional info about conversation! (A little much i know i need to make this look better!)
-			var utctime = new Date().toUTCString();
-			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
-			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
-			if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
-			if (useUsername) { var UserUsername = `USERNAME OF DISCORD USER: ${message.author.username}\n`; } else { var UserUsername = `` }
-			if (useUserID) { var UserID = `DISCORD USER-ID: ${message.author.id}\nDISCORD USER MENTION IS: <@${message.author.id}>`; } else { var UserID = `` }
-			if (useServername) { if (message.guild != null) { var ServerName = `DISCORD SERVER NAME: ${message.guild}\n`; } else { var ServerName = `` } } else { var ServerName = `` }
-			if (useChannelID) { var ChannelID = `DISCORD CHANNEL ID: ${message.channel.id}\n`; if (message.guild != null) { var ChannelID = + `DISCORD CHANNEL MENTION: <#${message.channel.id}>\n` } } else { var ChannelID = `` }
-			if (useChannelname) { var ChannelName = `DISCORD SERVER CHANNEL NAME: #${message.channel.name}\n`; } else { var ChannelName = `` }
-			if (useChannelname) { if (message.guild == null) { var ChannelName = `Direct-message with the user ${message.author.tag}\n`; } }
-			if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${message.author.displayName}\n` } else { var Nickname = `` };
+			var currentutctime = useutctime ? `Current UTC time: ${utctime}\n` : ``;
+            var currentsystime = usesystime ? `Current System time: ${time}\n` : ``;
+            var UserUsername = useUsername ? `USERNAME OF DISCORD USER: ${message.author.username}\n` : ``;
+            var UserID = useUserID ? `DISCORD USER-ID: ${message.author.id}\nDISCORD USER MENTION IS: <@${message.author.id}>` : ``;
+            var ChannelID = useChannelID ? `DISCORD CHANNEL ID: ${message.channel.id}\n` : ``;
+            if (message.guild == null) {
+                var ChannelName = useChannelname ? `Direct-message with the user ${message.author.tag}\n` : ``;
+                var ServerName = ``;
+            }
+            else {
+                if (ChannelID != ``) ChannelID += `DISCORD CHANNEL MENTION: <#${message.channel.id}>\n`;
+                var ChannelName = useChannelname ? `DISCORD SERVER CHANNEL NAME: #${message.channel.name}\n` : ``;
+                var ServerName = useServername ? `DISCORD SERVER NAME: ${message.guild}\n` : ``;
+            }
+            var Nickname = useNickname ? `DISCORD NICKNAME OF USER: ${message.author.displayName}\n` : ``;
 			var initialPrompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`)
 			log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
 			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`);
