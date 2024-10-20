@@ -2528,7 +2528,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					fields: [
 						{
 							name: '/help',
-							value: `This will displays the current help message!`,
+							value: `This will display the current help message!`,
+						},
+						{
+							name: '/website',
+							value: `Display the current website for the bot.`,
+						},
+						{
+							name: '/support',
+							value: `Display the support Discord server`,
 						},
 						{
 							name: '/clear',
@@ -2595,10 +2603,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							value: `Describe is very similar to respond however it can respond to images(It is required to use describe) and prompts`,
 						},
 						{
-							name: '/website',
-							value: `Display the current website for the bot.`,
-						},
-						{
 							name: '/enablewelcome',
 							value: `Allows you to enable A.I welcome messages for new members.`,
 						},
@@ -2615,12 +2619,48 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							value: `Allows you to remove channels the bot will respond to <@${client.user.id}>`,
 						},
 						{
+							name: '/enablewelcome',
+							value: `Enables the welcome message when new users join the guild!`,
+						},
+						{
+							name: '/disablewelcome ',
+							value: `Disables the welcome message when new users join the guild!`,
+						},
+
+					],
+					timestamp: new Date().toISOString(),
+					footer: {
+						text: `Help message`,
+						icon_url: embedIcon,
+					},
+				};
+				var responseEmbed2 = {
+					color: embedColor,
+					title: 'Help',
+					author: {
+						name: embedName,
+						url: embedLink,
+					},
+					description: `Continued command list`,
+					thumbnail: {
+						url: embedThumb,
+					},
+					fields: [
+						{
+							name: '/setwelcomesysmsg',
+							value: `Set the system message the bot uses while generating welcome messages!`,
+						},
+						{
 							name: 'System messages',
 							value: `System messages are tied to channel ID's; they are guidelines for a bot to follow, for example if I wrote "you must respond as chewbacca" the bot would try its best to follow those guidelines and respond as chewbacca!`,
 						},
 						{
 							name: 'Initial prompts',
 							value: `Initial prompts are tied to your user ID; they are a bio from you to the bot. Initial prompts are sent before every message you send.`,
+						},
+						{
+							name: 'Welcome messages',
+							value: `The bot may send welcome messages to new users that join your guild (these may be customized through /setwelcomesysmsg)`,
 						},
 						{
 							name: 'Ways to interact with the LLM',
@@ -2637,8 +2677,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			
 				await interaction.deferReply();
 				await interaction.editReply({
-					embeds: [responseEmbed],
+					embeds: [responseEmbed, responseEmbed2],
 				})
+
+
 
 			} catch (error) {
 				logError(error);
@@ -3190,6 +3232,51 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			}
 			log(LogLevel.Debug, `Finished responding to /setwelcomesysmsg`)
 			break;
+			case "support":
+				log(LogLevel.Debug, `Attempting to run /support`)
+				try {
+					await interaction.deferReply();
+					
+					var responseEmbed = {
+						color: embedColor,
+						title: 'Support',
+						author: {
+							name: embedName,
+							url: embedLink,
+						},
+						description: `My [support discord server is here!](https://discord.com/invite/RwZd3T8vde)`,
+						thumbnail: {
+							url: embedThumb,
+						},
+						timestamp: new Date().toISOString(),
+						footer: {
+							text: `Support discord server invite!`,
+							icon_url: embedIcon,
+						},
+					};
+				
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
+				} catch (error) {
+					logError(error);
+					try {
+						await interaction.editReply({
+							content: `Error, please check the console | OVERIDE: ${error}`
+						});
+					} catch {
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `Error, please check the console | OVERIDE: ${error}`
+							});
+						} catch (error) {
+							logError(error);
+						}
+					}
+				}
+				log(LogLevel.Debug, `Finished responding to /support`)
+				break;
 	}
 }}});
 
