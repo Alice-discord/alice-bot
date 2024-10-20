@@ -22,10 +22,10 @@ const fs = require("fs");
 const { MessageEmbed } = require('discord.js');
 
 
-//I know its not the best practice but i need this thing to not crash every two minutes
+//Prevent uncaught error crashes
 process.on('uncaughtException', function (err) {
 	console.error(err);
-	console.log("Node NOT Exiting...");
+	console.log("uncaughtException...");
   });
 
 dotenv.config();
