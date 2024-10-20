@@ -30,17 +30,36 @@ process.on('uncaughtException', function (err) {
 
 dotenv.config();
 
-if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
-if (!fs.existsSync("./cache/channels")) { fs.writeFileSync("./cache/channels", JSON.stringify(`,${process.env.CHANNELS}`), 'utf8')}; 
-if (!fs.existsSync(`./cache/blockedguilds`)) {fs.writeFileSync(`./cache/blockedguilds`, JSON.stringify(`,${process.env.BLOCKED_GUILDS}`, `utf8`))};
-if (!fs.existsSync(`./cache/blockedusers`)) {fs.writeFileSync(`./cache/blockedusers`, JSON.stringify(`,${process.env.BLOCKED_USERS}`, `utf8`))};
-if (!fs.existsSync("./cache")) { fs.mkdirSync("./cache"); };
-if (!fs.existsSync("./cache/context")) { fs.mkdirSync("./cache/context") };
-if (!fs.existsSync("./cache/initial-prompt")) { fs.mkdirSync("./cache/initial-prompt") };
-if (!fs.existsSync("./cache/system-message")) { fs.mkdirSync("./cache/system-message") };
-if (!fs.existsSync(`./cache/welcomemessageboolean`)) {fs.mkdirSync("./cache/welcomemessageboolean")};
-if (!fs.existsSync(`./cache/welcomemessagesystem`)) {fs.mkdirSync("./cache/welcomemessagesystem")};
-
+if (!fs.existsSync("./cache")) {
+	 fs.mkdirSync("./cache"); 
+	};
+if (!fs.existsSync("./cache/channels")) {
+	 fs.writeFileSync("./cache/channels", JSON.stringify(`,${process.env.CHANNELS}`), 'utf8')
+	}; 
+if (!fs.existsSync(`./cache/blockedguilds`)) {
+	fs.writeFileSync(`./cache/blockedguilds`, JSON.stringify(`,${process.env.BLOCKED_GUILDS}`, `utf8`))
+	};
+if (!fs.existsSync(`./cache/blockedusers`)) {
+	fs.writeFileSync(`./cache/blockedusers`, JSON.stringify(`,${process.env.BLOCKED_USERS}`, `utf8`))
+	};
+if (!fs.existsSync("./cache")) {
+	 fs.mkdirSync("./cache"); 
+	};
+if (!fs.existsSync("./cache/context")) {
+	 fs.mkdirSync("./cache/context") 
+	};
+if (!fs.existsSync("./cache/initial-prompt")) {
+	 fs.mkdirSync("./cache/initial-prompt") 
+	};
+if (!fs.existsSync("./cache/system-message")) {
+	 fs.mkdirSync("./cache/system-message")
+	};
+if (!fs.existsSync(`./cache/welcomemessageboolean`)) {
+	fs.mkdirSync("./cache/welcomemessageboolean")
+	};
+if (!fs.existsSync(`./cache/welcomemessagesystem`)) {
+	fs.mkdirSync("./cache/welcomemessagesystem")
+	};
 
 const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
 const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
