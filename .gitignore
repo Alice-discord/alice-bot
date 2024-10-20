@@ -4,14 +4,5 @@ pnpm-lock.yml
 node_modules/
 .env
 .vscode/
-cache
-Start(ONLY-OLLAMA).bat
-modelfile
-StartNPM.bat
-errors
-cache/blockedguilds
 /cache
-/cache
-cache/channels
-cache/blockedusers
-cache/blockedguilds
+*.bat
