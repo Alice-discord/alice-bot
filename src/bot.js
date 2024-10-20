@@ -473,8 +473,8 @@ client.on(Events.MessageCreate, async message => {
 			};
 
 			// Adding additional info about conversation! (A little much i know i need to make this look better!)
-			var currentutctime = useutctime ? `Current UTC time: ${utctime}\n` : ``;
-            var currentsystime = usesystime ? `Current System time: ${time}\n` : ``;
+			var currentutctime = useutctime ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
+            var currentsystime = usesystime ? `Current System time: ${new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })}\n` : ``;
             var UserUsername = useUsername ? `USERNAME OF DISCORD USER: ${message.author.username}\n` : ``;
             var UserID = useUserID ? `DISCORD USER-ID: ${message.author.id}\nDISCORD USER MENTION IS: <@${message.author.id}>` : ``;
             var ChannelID = useChannelID ? `DISCORD CHANNEL ID: ${message.channel.id}\n` : ``;
