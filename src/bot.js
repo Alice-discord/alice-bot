@@ -468,7 +468,7 @@ client.on(Events.MessageCreate, async message => {
 					context = JSON.parse(fs.readFileSync(`./cache/context/context-${message.channel.id}`, 'utf8'));
 				}
 				else {
-					context = messages[channelID].last;
+					context = [];
 				}
 			};
 
