@@ -10,7 +10,8 @@ import {
 	Routes,
 	ChannelType,
 	PermissionsBitField,
-	ActivityType
+	ActivityType,
+	fetchRecommendedShardCount
 } from "discord.js";
 import { Logger, LogLevel } from "meklog";
 import dotenv from "dotenv";
@@ -463,6 +464,62 @@ client.on(Events.MessageCreate, async message => {
 
 		log(LogLevel.Debug, `Starting response to message ${userInput}`)
 
+		let flag=false;
+		var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+		var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+		for (const item of BLOCKED_PHRASES) {
+			if (userInput.includes(item)) {
+
+				console.log(`Freakout and crashout \n${message.author.username} - ${message.author.displayName} - ${message.author.id} \njust attempted to make an response with @alice with the blocked phrase ${item}`)
+					
+				var replyBLOCKEDmessage = `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+				await replySplitMessage(message, `${replyBLOCKEDmessage}`)
+
+					if(message.guild){
+					var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+					blockedGuilds += `,${message.guild.id}`
+
+					fs.writeFileSync(`./cache/blockedguilds`,
+
+						JSON.stringify(blockedGuilds), 'utf8',
+
+						function (err) {
+							if (err) {
+								logError(err)('Crap happens');
+							}
+						}
+					);
+					log(LogLevel.Debug, `Added to blocked guilds (${message.guild.name} - ${message.guild.id})`)
+					}
+
+					var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+					blockedUsers += `,${message.author.id}`
+
+					fs.writeFileSync(`./cache/blockedusers`,
+
+						JSON.stringify(blockedUsers), 'utf8',
+
+						function (err) {
+							if (err) {
+								logError(err)('Crap happens');
+							}
+						}
+					);
+					log(LogLevel.Debug, `Added to the blocked users (${message.author.username} - ${message.author.displayName} - ${message.author.id})`)
+
+					if(message.guild){
+					try {
+					message.guild.leave();
+					log(LogLevel.Debug, `Left the guild (${message.guild.name} - ${message.guild.id})`)
+					} catch (error) {
+							logError(error);
+					}
+					}
+					
+					//This is black magic but this works to prevent generation!!
+					return flag=true;} }
+
+
 		// start typing
 		typing = true;
 		await message.channel.sendTyping();
@@ -908,11 +965,73 @@ client.on(Events.InteractionCreate, async (interaction) => {
 	switch (commandName) {
 		case "text2img":
 			log(LogLevel.Debug, `Attempting to run /text2img`)
-			try {
+
+			let flag=false;
+			var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+			var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+			for (const item of BLOCKED_PHRASES) {
+				if (options.getString("prompt").includes(item)) {
+
+					console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an image with the blocked phrase ${item}`)
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+						})} catch {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+						})}
+
+						if(interaction.guild){
+						var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+						blockedGuilds += `,${interaction.guild.id}`
+
+						fs.writeFileSync(`./cache/blockedguilds`,
+
+							JSON.stringify(blockedGuilds), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+						}
+
+						var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+						blockedUsers += `,${interaction.user.id}`
+
+						fs.writeFileSync(`./cache/blockedusers`,
+
+							JSON.stringify(blockedUsers), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+
+						if(interaction.guild){
+						try {
+						interaction.guild.leave();
+						log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+						} catch (error) {
+								logError(error);
+						}
+						}
+						
+						//This is black magic but this works to prevent generation!!
+						return flag=true;} }
+		
+			
 				function randomnumbergenseed(max) {
 					return Math.floor(Math.random() * max);
 				}
-				const prompt = options.getString("prompt");
+				var prompt = options.getString("prompt")
 				const sampler_method = options.getString("sampling_method") || "Euler";
 				const sampler_type = options.getString("sampling_method") || "Simple";
 				const sampler_name = `${sampler_method} ${sampler_type}`;
@@ -944,7 +1063,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						num_inference_steps: steps,
 						batch_count,
 						batch_size,
-						enhance_prompt
+						enhance_prompt,        
+						send_images: true,
+						save_images: false,
 					}
 				);
 				const images = fluxResponse.images.map((image) =>
@@ -1031,23 +1152,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						files: images
 					});
 				});
-			} catch (error) {
-				logError(error);
-				try {
-					await interaction.editReply({
-						content: `Error, please check the console | OVERIDE: ${error}`
-					});
-				} catch {
-					try {
-						await interaction.deferReply();
-						await interaction.editReply({
-							content: `Error, please check the console | OVERIDE: ${error}`
-						});
-					} catch (error) {
-						logError(error);
-					}
-				}
-			}
 			log(LogLevel.Debug, `Finished responding to /text2img`)
 			break;
 		case "img2img":
@@ -1056,6 +1160,68 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				function randomnumbergenseed(max) {
 					return Math.floor(Math.random() * max);
 				}
+
+				let flag=false;
+			var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+			var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+			for (const item of BLOCKED_PHRASES) {
+				if (options.getString("prompt").includes(item)) {
+
+					console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an image with the blocked phrase ${item}`)
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+						})} catch {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+						})}
+
+						if(interaction.guild){
+						var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+						blockedGuilds += `,${interaction.guild.id}`
+
+						fs.writeFileSync(`./cache/blockedguilds`,
+
+							JSON.stringify(blockedGuilds), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+						}
+
+						var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+						blockedUsers += `,${interaction.user.id}`
+
+						fs.writeFileSync(`./cache/blockedusers`,
+
+							JSON.stringify(blockedUsers), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+
+						if(interaction.guild){
+						try {
+						interaction.guild.leave();
+						log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+						} catch (error) {
+								logError(error);
+						}
+						}
+						
+						//This is black magic but this works to prevent generation!!
+						return flag=true;} }
+
 
 				const attachment = options.getAttachment("image")
 				const url = attachment.url
@@ -1229,6 +1395,128 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			log(LogLevel.Debug, `Attempting to run /describe`)
 			try {
 
+				let flag=false;
+			var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+			var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+			for (const item of BLOCKED_PHRASES) {
+				if (options.getString("prompt").includes(item)) {
+
+					console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an image with the blocked phrase ${item}`)
+					try {
+						await interaction.deferReply();
+						await interaction.editReply({
+							content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+						})} catch {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+						})}
+
+						if(interaction.guild){
+						var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+						blockedGuilds += `,${interaction.guild.id}`
+
+						fs.writeFileSync(`./cache/blockedguilds`,
+
+							JSON.stringify(blockedGuilds), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+						}
+
+						var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+						blockedUsers += `,${interaction.user.id}`
+
+						fs.writeFileSync(`./cache/blockedusers`,
+
+							JSON.stringify(blockedUsers), 'utf8',
+
+							function (err) {
+								if (err) {
+									logError(err)('Crap happens');
+								}
+							}
+						);
+						log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+
+						if(interaction.guild){
+						try {
+						interaction.guild.leave();
+						log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+						} catch (error) {
+								logError(error);
+						}
+						}
+						
+						//This is black magic but this works to prevent generation!!
+						return flag=true;} }
+
+						let flag2=false;
+							var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+							var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+							for (const item of BLOCKED_PHRASES) {
+								if (options.getString("system").includes(item)) {
+				
+									console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an text document with the blocked phrase ${item}`)
+									try {
+										await interaction.deferReply();
+										await interaction.editReply({
+											content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in text gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+										})} catch {
+											await interaction.deferReply();
+											await interaction.editReply({
+												content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in text gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+										})}
+				
+										if(interaction.guild){
+										var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+										blockedGuilds += `,${interaction.guild.id}`
+				
+										fs.writeFileSync(`./cache/blockedguilds`,
+				
+											JSON.stringify(blockedGuilds), 'utf8',
+				
+											function (err) {
+												if (err) {
+													logError(err)('Crap happens');
+												}
+											}
+										);
+										log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+										}
+				
+										var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+										blockedUsers += `,${interaction.user.id}`
+				
+										fs.writeFileSync(`./cache/blockedusers`,
+				
+											JSON.stringify(blockedUsers), 'utf8',
+				
+											function (err) {
+												if (err) {
+													logError(err)('Crap happens');
+												}
+											}
+										);
+										log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+				
+										if(interaction.guild){
+										try {
+										interaction.guild.leave();
+										log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+										} catch (error) {
+												logError(error);
+										}
+										}
+										
+										//This is black magic but this works to prevent generation!!
+										return flag2=true;} }
+
 				const attachment = options.getAttachment("image");
 				const url = attachment.url;
 				var b64image = []
@@ -1375,6 +1663,128 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "respond":
 			log(LogLevel.Debug, `Attempting to run /resond`)
 			try {
+				let flag=false;
+				var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+				var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+				for (const item of BLOCKED_PHRASES) {
+					if (options.getString("prompt").includes(item)) {
+	
+						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an text document description with the blocked phrase ${item}`)
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in text & image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+							})} catch {
+								await interaction.deferReply();
+								await interaction.editReply({
+									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` text & image image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+							})}
+	
+							if(interaction.guild){
+							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+							blockedGuilds += `,${interaction.guild.id}`
+	
+							fs.writeFileSync(`./cache/blockedguilds`,
+	
+								JSON.stringify(blockedGuilds), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+							}
+	
+							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+							blockedUsers += `,${interaction.user.id}`
+	
+							fs.writeFileSync(`./cache/blockedusers`,
+	
+								JSON.stringify(blockedUsers), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+	
+							if(interaction.guild){
+							try {
+							interaction.guild.leave();
+							log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+							} catch (error) {
+									logError(error);
+							}
+							}
+							
+							//This is black magic but this works to prevent generation!!
+							return flag=true;} }
+
+							let flag2=false;
+							var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+							var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+							for (const item of BLOCKED_PHRASES) {
+								if (options.getString("system").includes(item)) {
+				
+									console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an text document description with the blocked phrase ${item}`)
+									try {
+										await interaction.deferReply();
+										await interaction.editReply({
+											content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in text & image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+										})} catch {
+											await interaction.deferReply();
+											await interaction.editReply({
+												content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in text & image gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+										})}
+				
+										if(interaction.guild){
+										var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+										blockedGuilds += `,${interaction.guild.id}`
+				
+										fs.writeFileSync(`./cache/blockedguilds`,
+				
+											JSON.stringify(blockedGuilds), 'utf8',
+				
+											function (err) {
+												if (err) {
+													logError(err)('Crap happens');
+												}
+											}
+										);
+										log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+										}
+				
+										var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+										blockedUsers += `,${interaction.user.id}`
+				
+										fs.writeFileSync(`./cache/blockedusers`,
+				
+											JSON.stringify(blockedUsers), 'utf8',
+				
+											function (err) {
+												if (err) {
+													logError(err)('Crap happens');
+												}
+											}
+										);
+										log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+				
+										if(interaction.guild){
+										try {
+										interaction.guild.leave();
+										log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+										} catch (error) {
+												logError(error);
+										}
+										}
+										
+										//This is black magic but this works to prevent generation!!
+										return flag2=true;} }
+
 				await interaction.deferReply()
 				try {
 					if (fs.existsSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)) {
@@ -1852,6 +2262,67 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "setsysmsg":
 			log(LogLevel.Debug, `Attempting to run /setsysmsg`)
 			try {
+				let flag=false;
+				var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+				var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+				for (const item of BLOCKED_PHRASES) {
+					if (options.getString("sysmsg").includes(item)) {
+	
+						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an system message description with the blocked phrase ${item}`)
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a system message if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+							})} catch {
+								await interaction.deferReply();
+								await interaction.editReply({
+									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a system message gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+							})}
+	
+							if(interaction.guild){
+							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+							blockedGuilds += `,${interaction.guild.id}`
+	
+							fs.writeFileSync(`./cache/blockedguilds`,
+	
+								JSON.stringify(blockedGuilds), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+							}
+	
+							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+							blockedUsers += `,${interaction.user.id}`
+	
+							fs.writeFileSync(`./cache/blockedusers`,
+	
+								JSON.stringify(blockedUsers), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+	
+							if(interaction.guild){
+							try {
+							interaction.guild.leave();
+							log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+							} catch (error) {
+									logError(error);
+							}
+							}
+							
+							//This is black magic but this works to prevent generation!!
+							return flag=true;} }
+
 				const userdefinedsystemmessage = options.getString("sysmsg");
 				fs.writeFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, `${userdefinedsystemmessage}`)
 				var sysmsgresponse = `"${userdefinedsystemmessage}"`
@@ -1907,6 +2378,67 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "setinitprompt":
 			log(LogLevel.Debug, `Attempting to run /setinitprompt`)
 			try { 
+				let flag=false;
+				var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+				var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+				for (const item of BLOCKED_PHRASES) {
+					if (options.getString("initprompt").includes(item)) {
+	
+						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an initprompt with the blocked phrase ${item}`)
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+							})} catch {
+								await interaction.deferReply();
+								await interaction.editReply({
+									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+							})}
+	
+							if(interaction.guild){
+							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+							blockedGuilds += `,${interaction.guild.id}`
+	
+							fs.writeFileSync(`./cache/blockedguilds`,
+	
+								JSON.stringify(blockedGuilds), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+							}
+	
+							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+							blockedUsers += `,${interaction.user.id}`
+	
+							fs.writeFileSync(`./cache/blockedusers`,
+	
+								JSON.stringify(blockedUsers), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+	
+							if(interaction.guild){
+							try {
+							interaction.guild.leave();
+							log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+							} catch (error) {
+									logError(error);
+							}
+							}
+							
+							//This is black magic but this works to prevent generation!!
+							return flag=true;} }
+
 				const userdefinedinitprompt = options.getString("initprompt");
 				if (fs.existsSync()) {
 					fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, `${userdefinedinitprompt}`)
@@ -1966,6 +2498,67 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "addsysmsg":
 			log(LogLevel.Debug, `Attempting to run /addsysmsg`)
 			try {
+				let flag=false;
+				var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+				var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+				for (const item of BLOCKED_PHRASES) {
+					if (options.getString("sysmsg").includes(item)) {
+	
+						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an system message with the blocked phrase ${item}`)
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a system message if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+							})} catch {
+								await interaction.deferReply();
+								await interaction.editReply({
+									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a system message gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+							})}
+	
+							if(interaction.guild){
+							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+							blockedGuilds += `,${interaction.guild.id}`
+	
+							fs.writeFileSync(`./cache/blockedguilds`,
+	
+								JSON.stringify(blockedGuilds), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+							}
+	
+							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+							blockedUsers += `,${interaction.user.id}`
+	
+							fs.writeFileSync(`./cache/blockedusers`,
+	
+								JSON.stringify(blockedUsers), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+	
+							if(interaction.guild){
+							try {
+							interaction.guild.leave();
+							log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+							} catch (error) {
+									logError(error);
+							}
+							}
+							
+							//This is black magic but this works to prevent generation!!
+							return flag=true;} }
+
 				const userdefinedappendsystemmessage = options.getString("appendsysmsg");
 				fs.appendFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, ` ${userdefinedappendsystemmessage}`);
 				var appenededSYSmsg = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
@@ -2022,6 +2615,67 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "addinitprompt":
 			log(LogLevel.Debug, `Attempting to run /addinitprompt`)
 			try {
+				let flag=false;
+				var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
+				var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+				for (const item of BLOCKED_PHRASES) {
+					if (options.getString("initprompt").includes(item)) {
+	
+						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an initprompt with the blocked phrase ${item}`)
+						try {
+							await interaction.deferReply();
+							await interaction.editReply({
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+							})} catch {
+								await interaction.deferReply();
+								await interaction.editReply({
+									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+							})}
+	
+							if(interaction.guild){
+							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
+							blockedGuilds += `,${interaction.guild.id}`
+	
+							fs.writeFileSync(`./cache/blockedguilds`,
+	
+								JSON.stringify(blockedGuilds), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+							}
+	
+							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
+							blockedUsers += `,${interaction.user.id}`
+	
+							fs.writeFileSync(`./cache/blockedusers`,
+	
+								JSON.stringify(blockedUsers), 'utf8',
+	
+								function (err) {
+									if (err) {
+										logError(err)('Crap happens');
+									}
+								}
+							);
+							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
+	
+							if(interaction.guild){
+							try {
+							interaction.guild.leave();
+							log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
+							} catch (error) {
+									logError(error);
+							}
+							}
+							
+							//This is black magic but this works to prevent generation!!
+							return flag=true;} }
+
 				const userdefinedappendinitprompt = options.getString("appendinitprompt");
 				fs.appendFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, ` ${userdefinedappendinitprompt}`);
 				var appenededINITprompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
