@@ -24,11 +24,20 @@ const { MessageEmbed } = require('discord.js');
 const { MongoClient, ServerApiVersion } = require("mongodb");
 // Replace the placeholder with your Atlas connection string
 
-const useMongo = getBoolean(process.env.MONGODB);
-if (useMongo) {
 const uri = `${process.env.MONGODB_URI}`;
+const db = `${process.env.MONGODB_DB}`;
+const contextcollect = `${process.env.MONGO_CONTEXT_COLLECTION}`;
+const blockedcollect = `${process.env.MONGO_BLOCKED_COLLECTION}`;
+const channelscollect = `${process.env.MONGO_CHANNELS_COLLECTION}`;
+const initialpromptcollect = `${process.env.MONGO_INITIAL_PROMPT_COLLECTION}`;
+const systemmessagecollect = `${process.env.MONGO_SYSTEM_MESSAGE_COLLECTION}`;
+const welcomemessagebooleancollect = `${process.env.MONGO_WELCOME_MESSAGE_BOOLEAN_COLLECTION}`;
+const welcomemessagesystemmessagecollect = `${process.env.MONGO_WELCOME_MESSAGE_SYSTEM_MESSAGE_COLLECTION}`;
+
+
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const mongoclient = new MongoClient(uri,  {
+	monitorCommands: true,
         serverApi: {
             version: ServerApiVersion.v1,
             strict: true,
@@ -38,18 +47,171 @@ const mongoclient = new MongoClient(uri,  {
 );
 async function testmongo() {
 	try {
-	  // Connect the client to the server (optional starting in v4.7)
+	  // Connect the client to the server
 	  await mongoclient.connect();
 	  // Send a ping to confirm a successful connection
 	  await mongoclient.db("admin").command({ ping: 1 });
-	  console.log("Pinged your deployment. You successfully connected to MongoDB!");
+	  console.log("You successfully connected to MongoDB!");
 	} finally {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
   }
 testmongo().catch(console.dir);
-}
+
+async function setcontext(channelID, context) {
+	try {
+	  // Connect the client to the server
+	  await mongoclient.connect();
+
+ 	//Check if data already exsists and replaces it
+    if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+    {
+    await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${context}` });
+	console.log(`Replaced document with ${channelID} with the more recent data for ${channelID} & context content in DB:${db}/${contextcollect}`);
+    } else {
+    await mongoclient.db(db).collection(contextcollect).insertOne({ channelID: `${channelID}`, context: `${context}` })
+	console.log(`New document ${channelID} with the new data context content in DB:${db}/${contextcollect}`);
+    } 
+	
+	} finally {
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	}
+  }
+
+  async function clearcontext(channelID) {
+	var clearcontextresponse = `somin went wrong`
+	try {
+	  // Connect the client to the server
+	  await mongoclient.connect();
+ 	//Check if data already exsists and replaces it
+    if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+    {
+    await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${[0,0]}` });
+	var clearcontextresponse = `Cleared message history of ${channelID}`
+	console.log(`Delteted document ${channelID} with the data context in DB:${db}/${contextcollect}`);
+    } else {
+	var clearcontextresponse = `Cannot clear message history of ${channelID}`
+	console.log(`Cannot delete document ${channelID} with the data context in DB:${db}/${contextcollect} as it doesnt exsist`);
+    } 
+	
+	} finally {
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	}
+	return clearcontextresponse
+  }
+
+  async function readcontext(channelID) {
+	var readcontextresponse = [0,0]
+	try {
+	  // Connect the client to the server
+	  await mongoclient.connect();
+ 	//Check if data already exsists and replaces it
+    if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+    {
+	const query = { channelID: `${channelID}` };
+    const options = {
+      // Sort matched documents in descending order by rating
+      sort: { "context": -1 },
+      // Include only the `context` field in the returned document
+      projection: { _id: 0, context: 1 },
+    };
+
+	//Read context from database
+    var readcontextresponse = await mongoclient.db(db).collection(contextcollect).findOne(query, options);
+
+	//Parse context to string
+	readcontextresponse = JSON.stringify(readcontextresponse)
+
+	//Replace unwanted values
+	.replace(/"/g, '')
+	.replace(/{/g, '')
+	.replace(/}/g, '')
+	.replace(/:/g, '')
+	.replace(/c/g, '')
+	.replace(/o/g, '')
+	.replace(/n/g, '')
+	.replace(/t/g, '')
+	.replace(/e/g, '')
+	.replace(/x/g, '')
+
+	//Parse to an array
+	readcontextresponse = JSON.parse("[" + readcontextresponse + "]");
+
+    } else {
+	var readcontextresponse = [0,0]
+    } 
+
+	} finally {
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	}
+	return readcontextresponse
+
+  }
+
+  async function settinitialprompt(userID, initalprompt) {
+	try {
+	  // Connect the client to the server
+	  await mongoclient.connect();
+
+	  //Check if data already exsists and replaces it
+	  if(await mongoclient.db(db).collection(initialpromptcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+	  {
+	  await mongoclient.db(db).collection(initialpromptcollect).replaceOne({ userID: `${userID}` }, { userID: `${userID}`, initialprompt: `${initalprompt}` });
+	  console.log(`Replaced document with ${userID} with the more recent data for ${userID} & ${initalprompt} content in DB:${db}/${initialpromptcollect}`);
+	  } else {
+	  await mongoclient.db(db).collection(initialpromptcollect).insertOne({ userID: `${userID}`, initialprompt: `${initalprompt}` })
+	  console.log(`New document ${userID} with the new data ${initalprompt} content in DB:${db}/${initialpromptcollect}`);
+	  } 
+
+	  
+	  await mongoclient.db("cache").collection("initial-prompt").insertOne({ userID: `${userID}`, initialprompt: `${initalprompt}` })
+	  console.log(`Inserted ${userID} with the data ${initalprompt} to DB:${db}/${initialpromptcollect}`);
+	} finally {
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	}
+  }
+
+  async function setsystem(channelID, systemmessage) {
+	try {
+	  // Connect the client to the server
+	  await mongoclient.connect();
+
+	//Check if data already exsists and replaces it
+    if(await mongoclient.db(db).collection(systemmessagecollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+    {
+    await mongoclient.db(db).collection(systemmessagecollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, systemmessage: `${systemmessage}` });
+	console.log(`Replaced document with ${channelID} with the new data ${systemmessage} in DB:${db}/${systemmessagecollect}`);
+    } else {
+    await mongoclient.db(db).collection(systemmessagecollect).insertOne({ channelID: `${channelID}`, systemmessage: `${systemmessage}` })
+	console.log(`New document ${channelID} with the data ${systemmessage} content in DB:${db}/${systemmessagecollect}`);
+    } 
+	  
+	await mongoclient.db("cache").collection("system-message").insertOne({ channelID: `${channelID}`, systemmessage: `${systemmessage}` })
+	console.log(`Inserted ${channelID} with the data ${systemmessage} to DB:cache/system-message`);
+	} finally {
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	}
+  }
+
+  async function addBlockeduser(userID) {
+	try {
+	  // Connect the client to the server
+	  await mongoclient.connect();
+	  await mongoclient.db(db).collection("blocked").insertOne({ userID: `${userID}`})
+	  console.log(`Inserted ${userID} to DB:cache/blocked`);
+	} finally {
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	}
+  }
+
+
 
 //Prevent uncaught error crashes
 process.on('uncaughtException', function (err) {
@@ -566,15 +728,7 @@ client.on(Events.MessageCreate, async message => {
 		let response;
 		try {
 			// context if the message is not a reply
-
-			if (context == null) {
-				if (fs.existsSync(`./cache/context/context-${message.channel.id}`)) {
-					context = JSON.parse(fs.readFileSync(`./cache/context/context-${message.channel.id}`, 'utf8'));
-				}
-				else {
-					context = [];
-				}
-			};
+			context = await readcontext(message.channel.id)
 
 			// Adding additional info about conversation! (A little much i know i need to make this look better!)
 			var currentutctime = useutctime ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
@@ -652,6 +806,7 @@ client.on(Events.MessageCreate, async message => {
 		messages[channelID].last = context;
 		++messages[channelID].amount;
 		
+		setcontext(message.channel.id, context)
 
 		fs.writeFileSync(`./cache/context/context-${message.channel.id}`,
 
@@ -3427,10 +3582,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						}
 					}
 				} else {
-					if (fs.existsSync(`./cache/context/context-${interaction.channel.id}`)) {
-						fs.rmSync(`./cache/context/context-${interaction.channel.id}`)
-						if (interaction.guildId != null) {
-
 							var responseEmbed = {
 								color: embedColor,
 								title: 'Clear message history',
@@ -3438,13 +3589,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 									name: embedName,
 									url: embedLink,
 								},
-								description: `Cleared recent message history in <#${interaction.channel.id}>`,
+								description: `${await clearcontext(interaction.channel.id)}`,
 								thumbnail: {
 									url: embedThumb,
 								},
 								timestamp: new Date().toISOString(),
 								footer: {
-									text: `Cleared History`,
+									text: `clear-history`,
 									icon_url: embedIcon,
 								},
 							};
@@ -3454,84 +3605,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 								embeds: [responseEmbed],
 							})
 
-						} else {
-
-							var responseEmbed = {
-								color: embedColor,
-								title: 'Clear message history',
-								author: {
-									name: embedName,
-									url: embedLink,
-								},
-								description: `Cleared recent message history!`,
-								thumbnail: {
-									url: embedThumb,
-								},
-								timestamp: new Date().toISOString(),
-								footer: {
-									text: `Cleared History`,
-									icon_url: embedIcon,
-								},
-							};
-						
-							await interaction.deferReply();
-							await interaction.editReply({
-								embeds: [responseEmbed],
-							})
-
-						}
-					} else {
-						if (interaction.guildId != null) {
-
-							var responseEmbed = {
-								color: embedColor,
-								title: 'Clear message history',
-								author: {
-									name: embedName,
-									url: embedLink,
-								},
-								description: `Cannot clear message history since there is none in <#${interaction.channel.id}>!`,
-								thumbnail: {
-									url: embedThumb,
-								},
-								timestamp: new Date().toISOString(),
-								footer: {
-									text: `Error(cannot-clear-history)`,
-									icon_url: embedIcon,
-								},
-							};
-						
-							await interaction.deferReply();
-							await interaction.editReply({
-								embeds: [responseEmbed],
-							})
-
-						} else {
-							var responseEmbed = {
-								color: embedColor,
-								title: 'Clear message history',
-								author: {
-									name: embedName,
-									url: embedLink,
-								},
-								description: `Cannot clear message history since there is none!`,
-								thumbnail: {
-									url: embedThumb,
-								},
-								timestamp: new Date().toISOString(),
-								footer: {
-									text: `Error(cannot-clear-history)`,
-									icon_url: embedIcon,
-								},
-							};
-						
-							await interaction.deferReply();
-							await interaction.editReply({
-								embeds: [responseEmbed],
-							})
-
-						}
-					}
 				}
 			} catch (error) {
 				logError(error);
