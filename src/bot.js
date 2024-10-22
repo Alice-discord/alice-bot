@@ -161,13 +161,13 @@ async function setcontext(channelID, context) {
 	  const options = {
 		// Sort matched documents in descending order by rating
 		sort: { "initialprompt": -1 },
-		// Include only the `context` field in the returned document
+		// Include only the `initialprompt` field in the returned document
 		projection: { _id: 0, initialprompt: 1 },
 	  };
   
-	  //Read context from database
+	  //Read initialprompt from database
 	  var readinitresponse = await mongoclient.db(db).collection(initialpromptcollect).findOne(query, options);
-	  readinitresponse = JSON.parse("[" + readinitresponse.context.replace(/"/g, '') + "]");
+	  readinitresponse = JSON.stringify(readsystemmessageresponse.initialprompt)
   
 	  await mongoclient.close();
 	  return readinitresponse;
@@ -201,6 +201,32 @@ async function setcontext(channelID, context) {
 	}
   }
 
+  async function readsystem(channelID) {
+	// Connect the client to the server
+	await mongoclient.connect();
+	//Check if data already exists and replaces it
+	if (await mongoclient.db(db).collection(systemmessagecollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+	{
+	  const query = { channelID: `${channelID}` };
+	  const options = {
+		// Sort matched documents in descending order by rating
+		sort: { "systemmessage": -1 },
+		// Include only the `systemmessage` field in the returned document
+		projection: { _id: 0, systemmessage: 1 },
+	  };
+  
+	  //Read systemmessage from database
+	  var readsystemmessageresponse = await mongoclient.db(db).collection(systemmessagecollect).findOne(query, options);
+	  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.systemmessage)
+  
+	  await mongoclient.close();
+	  return readsystemmessageresponse;
+	}
+	
+	await mongoclient.close();
+	return [0, 0];
+  }
+  
   async function addBlockeduser(userID) {
 	try {
 	  // Connect the client to the server
