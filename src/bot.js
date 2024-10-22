@@ -21,7 +21,35 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { MessageEmbed } = require('discord.js');
+const { MongoClient, ServerApiVersion } = require("mongodb");
+// Replace the placeholder with your Atlas connection string
 
+const useMongo = getBoolean(process.env.MONGODB);
+if (useMongo) {
+const uri = `${process.env.MONGODB_URI}`;
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const mongoclient = new MongoClient(uri,  {
+        serverApi: {
+            version: ServerApiVersion.v1,
+            strict: true,
+            deprecationErrors: true,
+        }
+    }
+);
+async function testmongo() {
+	try {
+	  // Connect the client to the server (optional starting in v4.7)
+	  await mongoclient.connect();
+	  // Send a ping to confirm a successful connection
+	  await mongoclient.db("admin").command({ ping: 1 });
+	  console.log("Pinged your deployment. You successfully connected to MongoDB!");
+	} finally {
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	}
+  }
+testmongo().catch(console.dir);
+}
 
 //Prevent uncaught error crashes
 process.on('uncaughtException', function (err) {
