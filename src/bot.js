@@ -22,8 +22,6 @@ const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { MessageEmbed } = require('discord.js');
 const { MongoClient, ServerApiVersion } = require("mongodb");
-// Replace the placeholder with your Atlas connection string
-
 const uri = `${process.env.MONGODB_URI}`;
 const db = `${process.env.MONGODB_DB}`;
 const contextcollect = `${process.env.MONGO_CONTEXT_COLLECTION}`;
@@ -122,9 +120,11 @@ async function setcontext(channelID, context) {
 	  readcontextresponse = JSON.parse("[" + readcontextresponse.context.replace(/"/g, '') + "]");
   
 	  await mongoclient.close();
+	  return readcontextresponse;
 	}
-	return readcontextresponse
-
+	
+	await mongoclient.close();
+	return [0, 0];
   }
 
   async function settinitialprompt(userID, initalprompt) {
@@ -150,6 +150,33 @@ async function setcontext(channelID, context) {
 	  await mongoclient.close();
 	}
   }
+
+  async function readinit(userID) {
+	// Connect the client to the server
+	await mongoclient.connect();
+	//Check if data already exists and replaces it
+	if (await mongoclient.db(db).collection(initialpromptcollect).countDocuments({userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+	{
+	  const query = { userID: `${userID}` };
+	  const options = {
+		// Sort matched documents in descending order by rating
+		sort: { "initialprompt": -1 },
+		// Include only the `context` field in the returned document
+		projection: { _id: 0, initialprompt: 1 },
+	  };
+  
+	  //Read context from database
+	  var readinitresponse = await mongoclient.db(db).collection(initialpromptcollect).findOne(query, options);
+	  readinitresponse = JSON.parse("[" + readinitresponse.context.replace(/"/g, '') + "]");
+  
+	  await mongoclient.close();
+	  return readinitresponse;
+	}
+	
+	await mongoclient.close();
+	return [0, 0];
+  }
+
 
   async function setsystem(channelID, systemmessage) {
 	try {
