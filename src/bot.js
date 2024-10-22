@@ -104,48 +104,23 @@ async function setcontext(channelID, context) {
   }
 
   async function readcontext(channelID) {
-	var readcontextresponse = [0,0]
-	try {
-	  // Connect the client to the server
-	  await mongoclient.connect();
- 	//Check if data already exsists and replaces it
-    if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
-    {
-	const query = { channelID: `${channelID}` };
-    const options = {
-      // Sort matched documents in descending order by rating
-      sort: { "context": -1 },
-      // Include only the `context` field in the returned document
-      projection: { _id: 0, context: 1 },
-    };
-
-	//Read context from database
-    var readcontextresponse = await mongoclient.db(db).collection(contextcollect).findOne(query, options);
-
-	//Parse context to string
-	readcontextresponse = JSON.stringify(readcontextresponse)
-
-	//Replace unwanted values
-	.replace(/"/g, '')
-	.replace(/{/g, '')
-	.replace(/}/g, '')
-	.replace(/:/g, '')
-	.replace(/c/g, '')
-	.replace(/o/g, '')
-	.replace(/n/g, '')
-	.replace(/t/g, '')
-	.replace(/e/g, '')
-	.replace(/x/g, '')
-
-	//Parse to an array
-	readcontextresponse = JSON.parse("[" + readcontextresponse + "]");
-
-    } else {
-	var readcontextresponse = [0,0]
-    } 
-
-	} finally {
-	  // Ensures that the client will close when you finish/error
+	// Connect the client to the server
+	await mongoclient.connect();
+	//Check if data already exists and replaces it
+	if (await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+	{
+	  const query = { channelID: `${channelID}` };
+	  const options = {
+		// Sort matched documents in descending order by rating
+		sort: { "context": -1 },
+		// Include only the `context` field in the returned document
+		projection: { _id: 0, context: 1 },
+	  };
+  
+	  //Read context from database
+	  var readcontextresponse = await mongoclient.db(db).collection(contextcollect).findOne(query, options);
+	  readcontextresponse = JSON.parse("[" + readcontextresponse.context.replace(/"/g, '') + "]");
+  
 	  await mongoclient.close();
 	}
 	return readcontextresponse
