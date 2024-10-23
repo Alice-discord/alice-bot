@@ -7,7 +7,7 @@
     <p>
     <br>Alice uses webui forge, ollama and mongodb (Used for storing context, user, channel and even guild data) to give you a chatbot in discord; this repository was forked from <a href="https://github.com/mekb-turtle/discord-ai-bot">discord-ai-bot</a>
     </p>
-    <p>Setup instruct
+    <p style="align-text:left;">Setup instruct
     <br>1. Requirements
     <br>
     <br><a href="https://ollama.com/">Ollama</a>
