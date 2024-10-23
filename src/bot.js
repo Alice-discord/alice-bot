@@ -797,7 +797,7 @@ client.on(Events.MessageCreate, async message => {
 
 		if (await checkBlockeduser(message.author.id)) {
 			try {
-				let blockedUsermsg = `You (${message.author.username} - ${message.author.displayName} - ${message.author.id} - <@${message.author.id}>) have been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+				let blockedUsermsg = `You (${message.author.username} - ${message.author.displayName} - ${message.author.id} - <@${message.author.id}>) have been blocked by stuff-and-things for the following reason ${await checkBlockeduserreason(message.author.id)} if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
 				await message.reply(blockedUsermsg);
 				log(LogLevel.Debug, `Sent message "${blockedUsermsg}"`)
 				} catch (error) {
@@ -818,7 +818,7 @@ client.on(Events.MessageCreate, async message => {
 						c.type === ChannelType.GuildText &&
 						c.permissionsFor(message.guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
 					)
-					let responseLeavemsg = `This guild (${message.guild.name} - ${message.guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+					let responseLeavemsg = `This guild (${message.guild.name} - ${message.guild.id}) has been blocked by stuff-and-things for the following reason ${await checkBlockedguildreason(message.guild.id)} if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
 					await channelG.send(responseLeavemsg);
 					log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
 					} catch (error) {
@@ -1118,7 +1118,7 @@ if (welcomeuser) {
 			
 				await channelG.sendTyping();
 
-				let responseLeavemsg = `This guild (${guild.name} - ${guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+				let responseLeavemsg = `This guild (${guild.name} - ${guild.id}) has been blocked by stuff-and-things for the following reason \`${await checkBlockedguildreason(guild.id)}\` if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
 				await channelG.send(responseLeavemsg);
 				log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
 				} catch (error) {
@@ -1145,7 +1145,7 @@ if (welcomeuser) {
 				// context if the message is not a reply
 	
 				if (context == null) {
-				context = await readcontext(channelG.id)
+				var context = await readcontext(channelG.id)
 				}
 	
 			var prompt = `Write a message to introduce yourself in the new discord server you were invited to and joined ${guild.name}`;
@@ -1179,9 +1179,6 @@ if (welcomeuser) {
 			if (responseText.length == 0) {
 				responseText = "(No response)";
 			}
-	
-	
-	
 	
 			try {
 				await addChannel(channelG.id)
