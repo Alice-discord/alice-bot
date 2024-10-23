@@ -18,7 +18,7 @@ import dotenv from "dotenv";
 import axios from "axios";
 import commands from "./commands/commands.js";
 import { createRequire } from "module";
-import setinitprompt from "./commands/setintiprompt.js";
+import setinitprompt from "./commands/setinitprompt.js";
 import initprompt from "./commands/initprompt.js";
 const require = createRequire(import.meta.url);
 const fs = require("fs");
@@ -775,7 +775,7 @@ client.on(Events.MessageCreate, async message => {
 			log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
 			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`);
 			userInput = `Init-Prompt: ${initialPrompt}\n\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`; 
-			var usersystemMessage = readsystemmsg(message.channel.id)
+			var usersystemMessage = await readsystemmsg(message.channel.id)
 			var systemMessagetomodel = `${usersystemMessage}`
 			log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
 
@@ -989,7 +989,7 @@ if (welcomeuser) {
 			)
 		
 			await channelG.sendTyping();
-			var channel_system = readsystemmsg(channelG.id)
+			var channel_system = await readsystemmsg(channelG.id)
 			var channel_system = `${channel_system}`
 	
 			try {
@@ -1728,7 +1728,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					log(LogLevel.Error, `Failed to download image files: ${error}`);
 					break; // Stop processing if file download fails
 				}
-				readsystemmsg(interaction.channel.id)
+				var channel_system = await readsystemmsg(interaction.channel.id)
 
 				const imagesb64 = b64image;
 				var prompt = options.getString("prompt") || "Describe the image";
@@ -1977,7 +1977,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 				await interaction.deferReply()
 				
-				var channel_system = readsystemmsg(interaction.channel.id)
+				var channel_system = await readsystemmsg(interaction.channel.id)
 				var channel_system = `${channel_system}`
 
 				var init_prompt = await readinitprompt(interaction.user.id)
@@ -2134,13 +2134,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				log(LogLevel.Debug, `Attempting to run (Context-intergration) [reply]`)
 				try {
 					await interaction.deferReply()
-					try {
-						if (fs.existsSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)) {
-							var channel_system = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
-						} else { var channel_system = parseEnvString(process.env.SYSTEM) }
-					} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+					
+							var channel_system = await readsystemmsg(interaction.channel.id)
+						
 					var channel_system = `${channel_system}`
-	
 					var init_prompt = await readinitprompt(interaction.user.id)
 					var init_prompt = `${init_prompt}\n\n`
 	
@@ -2735,7 +2732,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 				const userdefinedappendsystemmessage = options.getString("appendsysmsg");
 				fs.appendFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, ` ${userdefinedappendsystemmessage}`);
-				var appenededSYSmsg = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
+				var preappenededSYSmsg = await readsystemmsg(interaction.channel.id)
+				setsystem(interaction.channel.id, `${preappenededSYSmsg} ${userdefinedappendsystemmessage}`)
+				var appenededSYSmsg = await readsystemmsg(interaction.channel.id)
 				var sysmsgresponse = `"${appenededSYSmsg}"`
 
 				var responseEmbed = {
