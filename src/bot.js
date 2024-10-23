@@ -19,7 +19,6 @@ import axios from "axios";
 import commands from "./commands/commands.js";
 import { createRequire } from "module";
 import setinitprompt from "./commands/setinitprompt.js";
-import initprompt from "./commands/initprompt.js";
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { MessageEmbed } = require('discord.js');
@@ -143,10 +142,6 @@ async function setcontext(channelID, context) {
 	  await mongoclient.db(db).collection(initialpromptcollect).insertOne({ userID: `${userID}`, initialprompt: `${initalprompt}` })
 	  console.log(`New document ${userID} with the new data ${initalprompt} content in DB:${db}/${initialpromptcollect}`);
 	  } 
-
-	  
-	  await mongoclient.db("cache").collection("initial-prompt").insertOne({ userID: `${userID}`, initialprompt: `${initalprompt}` })
-	  console.log(`Inserted ${userID} with the data ${initalprompt} to DB:${db}/${initialpromptcollect}`);
 	} finally {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
@@ -194,9 +189,6 @@ async function setcontext(channelID, context) {
     await mongoclient.db(db).collection(systemmessagecollect).insertOne({ channelID: `${channelID}`, systemmessage: `${systemmessage}` })
 	console.log(`New document ${channelID} with the data ${systemmessage} content in DB:${db}/${systemmessagecollect}`);
     } 
-	  
-	await mongoclient.db("cache").collection("system-message").insertOne({ channelID: `${channelID}`, systemmessage: `${systemmessage}` })
-	console.log(`Inserted ${channelID} with the data ${systemmessage} to DB:cache/system-message`);
 	} finally {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
@@ -2850,8 +2842,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 				const userdefinedappendinitprompt = options.getString("appendinitprompt");
 				var notappendedinit = await readinitprompt(interaction.user.id)
-				setinitprompt(interaction.user.id, `${userdefinedappendinitprompt} ${notappendedinit}`)
-				var appenededINITprompt = `"${userdefinedappendinitprompt} ${notappendedinit}"`
+				setinit(interaction.user.id, `${notappendedinit} ${userdefinedappendinitprompt}`)
+				var appenededINITprompt = `"${notappendedinit} ${userdefinedappendinitprompt}"`
 				var initpromptresponse = `"${appenededINITprompt}"`
 
 				var responseEmbed = {
@@ -2959,8 +2951,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "resetinitprompt":
 			log(LogLevel.Debug, `Attempting to run /resetinitprompt`)
 			try { 
-				setsystem(interaction.user.id, parseEnvString(process.env.INITIAL_PROMPT));
-				var initpromptresponse = `"${parseEnvString(process.env.INITIAL_PROMPT)}"`
+				setinit(interaction.user.id, `${process.env.INITIAL_PROMPT}`);
+				var initpromptresponse = `"${process.env.INITIAL_PROMPT}"`
 
 				var responseEmbed = {
 					color: embedColor,
