@@ -2731,9 +2731,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							return flag=true;} }
 
 				const userdefinedappendsystemmessage = options.getString("appendsysmsg");
-				fs.appendFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, ` ${userdefinedappendsystemmessage}`);
 				var preappenededSYSmsg = await readsystemmsg(interaction.channel.id)
-				setsystem(interaction.channel.id, `${preappenededSYSmsg} ${userdefinedappendsystemmessage}`)
+				await setsystem(interaction.channel.id, `${preappenededSYSmsg} ${userdefinedappendsystemmessage}`)
 				var appenededSYSmsg = await readsystemmsg(interaction.channel.id)
 				var sysmsgresponse = `"${appenededSYSmsg}"`
 
