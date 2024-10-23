@@ -18,6 +18,8 @@ import dotenv from "dotenv";
 import axios from "axios";
 import commands from "./commands/commands.js";
 import { createRequire } from "module";
+import setinitprompt from "./commands/setintiprompt.js";
+import initprompt from "./commands/initprompt.js";
 const require = createRequire(import.meta.url);
 const fs = require("fs");
 const { MessageEmbed } = require('discord.js');
@@ -127,7 +129,7 @@ async function setcontext(channelID, context) {
 	return [0, 0];
   }
 
-  async function settinitialprompt(userID, initalprompt) {
+  async function setinit(userID, initalprompt) {
 	try {
 	  // Connect the client to the server
 	  await mongoclient.connect();
@@ -151,7 +153,7 @@ async function setcontext(channelID, context) {
 	}
   }
 
-  async function readinit(userID) {
+  async function readinitprompt(userID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data already exists and replaces it
@@ -167,14 +169,14 @@ async function setcontext(channelID, context) {
   
 	  //Read initialprompt from database
 	  var readinitresponse = await mongoclient.db(db).collection(initialpromptcollect).findOne(query, options);
-	  readinitresponse = JSON.stringify(readsystemmessageresponse.initialprompt)
+	  readinitresponse = JSON.stringify(readinitresponse.initialprompt).slice(1,-1)
   
 	  await mongoclient.close();
 	  return readinitresponse;
 	}
 	
 	await mongoclient.close();
-	return [0, 0];
+	return `${process.env.INITIAL_PROMPT}`;
   }
 
 
@@ -201,7 +203,7 @@ async function setcontext(channelID, context) {
 	}
   }
 
-  async function readsystem(channelID) {
+  async function readsystemmsg(channelID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data already exists and replaces it
@@ -217,14 +219,14 @@ async function setcontext(channelID, context) {
   
 	  //Read systemmessage from database
 	  var readsystemmessageresponse = await mongoclient.db(db).collection(systemmessagecollect).findOne(query, options);
-	  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.systemmessage)
+	  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.systemmessage).slice(1,-1)
   
 	  await mongoclient.close();
 	  return readsystemmessageresponse;
 	}
 	
 	await mongoclient.close();
-	return [0, 0];
+	return `${process.env.SYSTEM}`;
   }
   
   async function addBlockeduser(userID) {
@@ -566,11 +568,6 @@ client.on(Events.MessageCreate, async message => {
 			return;
 		}
 
-
-		//Make sure the directories and files to store content for bot function exsist
-		if (!fs.existsSync(`./cache/system-message/system-message-${message.channel.id}.txt`)) { fs.writeFileSync(`./cache/system-message/system-message-${message.channel.id}.txt`, parseEnvString(process.env.SYSTEM)) }
-		if (!fs.existsSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`)) { fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`, parseEnvString(process.env.INITIAL_PROMPT)) }
-
 		let userInput = message.content
 			.replace(new RegExp("^s*" + myMention.source, ""), "").trim();
 
@@ -774,11 +771,11 @@ client.on(Events.MessageCreate, async message => {
                 var ServerName = useServername ? `DISCORD SERVER NAME: ${message.guild}\n` : ``;
             }
             var Nickname = useNickname ? `DISCORD NICKNAME OF USER: ${message.author.displayName}\n` : ``;
-			var initialPrompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${message.author.id}.txt`)
+			var initialPrompt = await readinitprompt(message.author.id)
 			log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
 			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`);
 			userInput = `Init-Prompt: ${initialPrompt}\n\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`; 
-			var usersystemMessage = fs.readFileSync(`./cache/system-message/system-message-${message.channel.id}.txt`)
+			var usersystemMessage = readsystemmsg(message.channel.id)
 			var systemMessagetomodel = `${usersystemMessage}`
 			log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
 
@@ -884,18 +881,10 @@ if (welcomeuser) {
 
 			log(LogLevel.Debug, dmchannel.id)
 
-			try {
-				if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${member.id}.txt`)) {
-					var init_prompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${member.id}.txt`)
-				} else { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
-			} catch { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
+			var init_prompt = await readinitprompt(member.id)
 			var init_prompt = `${init_prompt}\n\n`
 
-			try {
-				if (fs.existsSync(`./cache/system-message/system-message-${dmchannel.id}.txt`)) {
-					var channel_system = fs.readFileSync(`./cache/system-message/system-message-${dmchannel.id}.txt`)
-				} else { var channel_system = parseEnvString(process.env.SYSTEM) }
-			} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+			var channel_system = parseEnvString(process.env.SYSTEM)
 			var channel_system = `${channel_system}`
 
 			var prompt = `Write a welcome message to the discord user ${member.displayName}, they just joined the server ${member.guild.name}!`; 
@@ -1000,12 +989,7 @@ if (welcomeuser) {
 			)
 		
 			await channelG.sendTyping();
-
-			try {
-				if (fs.existsSync(`./cache/system-message/system-message-${channelG.id}.txt`)) {
-					var channel_system = fs.readFileSync(`./cache/system-message/system-message-${channelG.id}.txt`)
-				} else { var channel_system = parseEnvString(process.env.SYSTEM) }
-			} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+			var channel_system = readsystemmsg(channelG.id)
 			var channel_system = `${channel_system}`
 	
 			try {
@@ -1744,12 +1728,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					log(LogLevel.Error, `Failed to download image files: ${error}`);
 					break; // Stop processing if file download fails
 				}
-				try {
-					if (fs.existsSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)) {
-						var channel_system = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
-					} else { var channel_system = parseEnvString(process.env.SYSTEM) }
-				} catch (error) { var channel_system = parseEnvString(process.env.SYSTEM) }
-				var channel_system = `${channel_system}`
+				readsystemmsg(interaction.channel.id)
 
 				const imagesb64 = b64image;
 				var prompt = options.getString("prompt") || "Describe the image";
@@ -1997,19 +1976,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 										return flag2=true;} }
 
 				await interaction.deferReply()
-				try {
-					if (fs.existsSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)) {
-						var channel_system = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
-					} else { var channel_system = parseEnvString(process.env.SYSTEM) }
-				} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
+				
+				var channel_system = readsystemmsg(interaction.channel.id)
 				var channel_system = `${channel_system}`
 
-				try {
-					if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)) {
-						var init_prompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
-					} else { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
-				} catch { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
-				var init_prompt = `${init_prompt}\n\n`
+				var init_prompt = await readinitprompt(interaction.user.id)
 
 				try {
 					// context if the message is not a reply
@@ -2170,11 +2141,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					} catch { var channel_system = parseEnvString(process.env.SYSTEM) }
 					var channel_system = `${channel_system}`
 	
-					try {
-						if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)) {
-							var init_prompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
-						} else { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
-					} catch { var init_prompt = parseEnvString(process.env.INITIAL_PROMPT) };
+					var init_prompt = await readinitprompt(interaction.user.id)
 					var init_prompt = `${init_prompt}\n\n`
 	
 					try {
@@ -2535,7 +2502,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							return flag=true;} }
 
 				const userdefinedsystemmessage = options.getString("sysmsg");
-				fs.writeFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, `${userdefinedsystemmessage}`)
+				setsystem(interaction.channel.id, userdefinedsystemmessage)
 				var sysmsgresponse = `"${userdefinedsystemmessage}"`
 				
 				var responseEmbed = {
@@ -2651,11 +2618,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							return flag=true;} }
 
 				const userdefinedinitprompt = options.getString("initprompt");
-				if (fs.existsSync()) {
-					fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, `${userdefinedinitprompt}`)
-				} else {
-					fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, `${userdefinedinitprompt}`)
-				}
+				setinit(interaction.user.id, userdefinedinitprompt)
 				var initpromptresponse = `"${userdefinedinitprompt}"`
 
 				var responseEmbed = {
@@ -2713,7 +2676,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
 				var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
 				for (const item of BLOCKED_PHRASES) {
-					if (options.getString("sysmsg").includes(item)) {
+					if (options.getString("appendsysmsg").includes(item)) {
 	
 						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an system message with the blocked phrase ${item}`)
 						try {
@@ -2830,17 +2793,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
 				var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
 				for (const item of BLOCKED_PHRASES) {
-					if (options.getString("initprompt").includes(item)) {
+					if (options.getString("appendinitprompt").includes(item)) {
 	
 						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an initprompt with the blocked phrase ${item}`)
 						try {
 							await interaction.deferReply();
 							await interaction.editReply({
-								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
 							})} catch {
 								await interaction.deferReply();
 								await interaction.editReply({
-									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
+									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a initprompt if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
 							})}
 	
 							if(interaction.guild){
@@ -2888,8 +2851,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							return flag=true;} }
 
 				const userdefinedappendinitprompt = options.getString("appendinitprompt");
-				fs.appendFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, ` ${userdefinedappendinitprompt}`);
-				var appenededINITprompt = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
+				var notappendedinit = await readinitprompt(interaction.user.id)
+				setinitprompt(interaction.user.id, `${userdefinedappendinitprompt} ${notappendedinit}`)
+				var appenededINITprompt = `"${userdefinedappendinitprompt} ${notappendedinit}"`
 				var initpromptresponse = `"${appenededINITprompt}"`
 
 				var responseEmbed = {
@@ -2943,7 +2907,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "resetsysmsg":
 			log(LogLevel.Debug, `Attempting to run /resetsysmsg`)
 			try {
-				fs.writeFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`, parseEnvString(process.env.SYSTEM))
+				setsystem(interaction.channel.id, parseEnvString(process.env.SYSTEM))
 				var sysmsgresponse = `"${parseEnvString(process.env.SYSTEM)}"`
 
 				var responseEmbed = {
@@ -2997,7 +2961,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "resetinitprompt":
 			log(LogLevel.Debug, `Attempting to run /resetinitprompt`)
 			try { 
-				fs.writeFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`, parseEnvString(process.env.INITIAL_PROMPT));
+				setsystem(interaction.user.id, parseEnvString(process.env.INITIAL_PROMPT));
 				var initpromptresponse = `"${parseEnvString(process.env.INITIAL_PROMPT)}"`
 
 				var responseEmbed = {
@@ -3051,7 +3015,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "system":
 			log(LogLevel.Debug, `Attempting to run /system`)
 			try {
-				let readsystem = fs.readFileSync(`./cache/system-message/system-message-${interaction.channel.id}.txt`)
+				let readsystem = await readsystemmsg(interaction.channel.id)
 				let systemsend = `"${readsystem}"`
 
 				var responseEmbed = {
@@ -3105,9 +3069,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 		case "initprompt":
 			log(LogLevel.Debug, `Attempting to run /initprompt`)
 			try {
-				if (fs.existsSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)) {
-					var readinit = fs.readFileSync(`./cache/initial-prompt/initial-prompt-${interaction.user.id}.txt`)
-				} else { var readinit = parseEnvString(process.env.INITIAL_PROMPT) }
+				var readinit = await readinitprompt(interaction.user.id)
 				let initsend = `"${readinit}"`
 
 				var responseEmbed = {
