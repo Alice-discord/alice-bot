@@ -1,5 +1,7 @@
 /* eslint-disable */
 /* @ts-nocheck */
+import {createRequire} from "module";
+const require = createRequire(import.meta.url);
 import {
 	Client,
 	Events,
@@ -12,14 +14,31 @@ import {
 	PermissionsBitField,
 	ActivityType,
 	fetchRecommendedShardCount
-} from "discord.js";
+} from "discord.js"; const { MessageEmbed } = require('discord.js');
 import { Logger, LogLevel } from "meklog";
 import dotenv from "dotenv";
 import axios from "axios";
 import commands from "./commands/commands.js";
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { MessageEmbed } = require('discord.js');
+
+// Enviorment variables
+const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
+const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
+const FluxServers = process.env.WEBUIFORGE.split(",").map(url => ({ url: new URL(url), available: true }));
+const showStartOfConversation = getBoolean(process.env.SHOW_START_OF_CONVERSATION);
+const randomServer = getBoolean(process.env.RANDOM_SERVER);
+const usesystime = getBoolean(process.env.DATEINMESSAGE);
+const useutctime = getBoolean(process.env.UTCTIMEINMESSAGE);
+const useUsername = getBoolean(process.env.USEUSERNAME);
+const useUserID = getBoolean(process.env.USEUSERID);
+const useServername = getBoolean(process.env.USEGUILDNAME);
+const useChannelID = getBoolean(process.env.USECHANNELID);
+const useChannelname = getBoolean(process.env.USECHANNELNAME);
+const requiresMention = getBoolean(process.env.REQUIRES_MENTION);
+const useNickname = getBoolean(process.env.USENICKNAME);
+var model = process.env.MODEL;
+
+// All the mongo db functions
+// Mongo enviorment variables
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `${process.env.MONGODB_URI}`;
 const db = `${process.env.MONGODB_DB}`;
@@ -31,8 +50,6 @@ const systemmessagecollect = `${process.env.MONGO_SYSTEM_MESSAGE_COLLECTION}`;
 const welcomemessagebooleancollect = `${process.env.MONGO_WELCOME_MESSAGE_BOOLEAN_COLLECTION}`;
 const welcomemessagesystemmessagecollect = `${process.env.MONGO_WELCOME_MESSAGE_SYSTEM_MESSAGE_COLLECTION}`;
 
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const mongoclient = new MongoClient(uri,  {
 	monitorCommands: true,
         serverApi: {
@@ -40,8 +57,7 @@ const mongoclient = new MongoClient(uri,  {
             strict: true,
             deprecationErrors: true,
         }
-    }
-);
+});
 async function testmongo() {
 	try {
 	  // Connect the client to the server
@@ -53,8 +69,7 @@ async function testmongo() {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
-  }
-testmongo().catch(console.dir);
+}; testmongo().catch(console.dir);
 
 async function setcontext(channelID, context) {
 	try {
@@ -73,9 +88,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
-  }
+}
 
-  async function clearcontext(channelID) {
+async function clearcontext(channelID) {
 	var clearcontextresponse = `somin went wrong`
 	try {
 	  // Connect the client to the server
@@ -94,9 +109,9 @@ async function setcontext(channelID, context) {
 	  await mongoclient.close();
 	}
 	return clearcontextresponse
-  }
+}
 
-  async function readcontext(channelID) {
+async function readcontext(channelID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data already exists and replaces it
@@ -120,9 +135,9 @@ async function setcontext(channelID, context) {
 	
 	await mongoclient.close();
 	return [0, 0];
-  }
+}
 
-  async function setinit(userID, initalprompt) {
+async function setinit(userID, initalprompt) {
 	try {
 	  // Connect the client to the server
 	  await mongoclient.connect();
@@ -138,9 +153,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
-  }
+}
 
-  async function readinitprompt(userID) {
+async function readinitprompt(userID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data exists
@@ -164,10 +179,9 @@ async function setcontext(channelID, context) {
 	
 	await mongoclient.close();
 	return `${process.env.INITIAL_PROMPT}`;
-  }
+}
 
-
-  async function setsystem(channelID, systemmessage) {
+async function setsystem(channelID, systemmessage) {
 	try {
 	  // Connect the client to the server
 	  await mongoclient.connect();
@@ -183,9 +197,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
-  }
+}
 
-  async function readsystemmsg(channelID) {
+async function readsystemmsg(channelID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data exists
@@ -209,9 +223,9 @@ async function setcontext(channelID, context) {
 	
 	await mongoclient.close();
 	return `${process.env.SYSTEM}`;
-  }
+}
   
- 	async function checkBlockeduser(userID) {
+async function checkBlockeduser(userID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
@@ -223,9 +237,9 @@ async function setcontext(channelID, context) {
 		// Ensures that the client will close when you finish/error
 		await mongoclient.close();
 		return false
-	}
+}
   
-	async function checkBlockedguild(guildID) {
+async function checkBlockedguild(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
@@ -237,9 +251,9 @@ async function setcontext(channelID, context) {
 		// Ensures that the client will close when you finish/error
 		await mongoclient.close();
 		return false
-	}
+}
 
-	async function checkBlockeduserreason(userID) {
+async function checkBlockeduserreason(userID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
@@ -263,9 +277,9 @@ async function setcontext(channelID, context) {
 		// Ensures that the client will close when you finish/error
 		await mongoclient.close();
 		return `User is not blocked`
-	}
+}
 
-	async function checkBlockedguildreason(guildID) {
+async function checkBlockedguildreason(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
@@ -289,9 +303,9 @@ async function setcontext(channelID, context) {
 		// Ensures that the client will close when you finish/error
 		await mongoclient.close();
 		return `Guild is not blocked`
-	}
+}
 
-	async function addBlockeduser(userID, reason) {
+async function addBlockeduser(userID, reason) {
 		
 		  // Connect the client to the server
 		  await mongoclient.connect();
@@ -307,9 +321,9 @@ async function setcontext(channelID, context) {
 		// Ensures that the client will close when you finish/error
 		await mongoclient.close();
 		return `USER (${userID}) Is already blocked`
-	  }
+}
 
-	  async function addBlockedguild(guildID, reason) {
+async function addBlockedguild(guildID, reason) {
 		
 		// Connect the client to the server
 		await mongoclient.connect();
@@ -325,9 +339,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	  return `GUILD (${guildID}) Is already blocked`;
-	}
+}
 
-	async function removeBlockeduser(userID) {
+async function removeBlockeduser(userID) {
 		
 		// Connect the client to the server
 		await mongoclient.connect();
@@ -343,9 +357,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	  return `USER (${userID}) Is not blocked`
-	}
+}
 	
-	async function removeBlockedguild(guildID) {
+async function removeBlockedguild(guildID) {
 		
 		// Connect the client to the server
 		await mongoclient.connect();
@@ -361,9 +375,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	  return `GUILD (${guildID}) Is not blocked`;
-	}
+}
 
-	async function setwelcomesystemmsg(guildID, systemmessage) {
+async function setwelcomesystemmsg(guildID, systemmessage) {
 		try {
 		  // Connect the client to the server
 		  await mongoclient.connect();
@@ -379,9 +393,9 @@ async function setcontext(channelID, context) {
 		  // Ensures that the client will close when you finish/error
 		  await mongoclient.close();
 		}
-	  }
+}
 	
-	  async function readwelcomesystemmsg(guildID) {
+async function readwelcomesystemmsg(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exists
@@ -405,9 +419,9 @@ async function setcontext(channelID, context) {
 		
 		await mongoclient.close();
 		return `${process.env.SYSTEM}`;
-	  }
+}
 
-	  async function setwelcomesystemmsgboolean(guildID, boolean) {
+async function setwelcomesystemmsgboolean(guildID, boolean) {
 		try {
 		  // Connect the client to the server
 		  await mongoclient.connect();
@@ -423,9 +437,9 @@ async function setcontext(channelID, context) {
 		  // Ensures that the client will close when you finish/error
 		  await mongoclient.close();
 		}
-	  }
+}
 	
-	  async function readwelcomesystemmsgboolean(guildID) {
+async function readwelcomesystemmsgboolean(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exists
@@ -450,9 +464,9 @@ async function setcontext(channelID, context) {
 		
 		await mongoclient.close();
 		return false;
-	  }
+}
 
-	  async function removeChannel(channelID) {
+async function removeChannel(channelID) {
 		
 		// Connect the client to the server
 		await mongoclient.connect();
@@ -468,9 +482,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	  return `CHANNEL (${channelID}) is not listed`;
-	}
+}
 
-	async function addChannel(channelID) {
+async function addChannel(channelID) {
 		
 		// Connect the client to the server
 		await mongoclient.connect();
@@ -486,9 +500,9 @@ async function setcontext(channelID, context) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	  return `CHANNEL (${channelID}) is already listed`;
-	}
+}
 
-	async function checkChannel(channelID) {
+async function checkChannel(channelID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
@@ -500,20 +514,15 @@ async function setcontext(channelID, context) {
 		// Ensures that the client will close when you finish/error
 		await mongoclient.close();
 		return false
-	}
+}
 
-//Prevent uncaught error crashes
+// Prevent uncaught Exception stops
 process.on('uncaughtException', function (err) {
 	console.error(err);
 	console.log("uncaughtException...");
   });
 
 dotenv.config();
-
-const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
-const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
-const FluxServers = process.env.WEBUIFORGE.split(",").map(url => ({ url: new URL(url), available: true }));
-var model = process.env.MODEL;
 
 if (servers.length == 0) {
 	throw new Error("No servers available");
@@ -729,20 +738,6 @@ function parseEnvString(str) {
 	return typeof str === "string" ?
 		parseJSONMessage(str).replace(/<date>/gi, new Date().toUTCString()) : null;
 }
-
-const showStartOfConversation = getBoolean(process.env.SHOW_START_OF_CONVERSATION);
-const randomServer = getBoolean(process.env.RANDOM_SERVER);
-
-//Ethan's Modified env settings
-const usesystime = getBoolean(process.env.DATEINMESSAGE);
-const useutctime = getBoolean(process.env.UTCTIMEINMESSAGE);
-const useUsername = getBoolean(process.env.USEUSERNAME);
-const useUserID = getBoolean(process.env.USEUSERID);
-const useServername = getBoolean(process.env.USEGUILDNAME);
-const useChannelID = getBoolean(process.env.USECHANNELID);
-const useChannelname = getBoolean(process.env.USECHANNELNAME);
-const requiresMention = getBoolean(process.env.REQUIRES_MENTION);
-const useNickname = getBoolean(process.env.USENICKNAME);
 
 async function replySplitMessage(replyMessage, content) {
 	const responseMessages = splitText(content, 2000).map(text => ({ content: text }));
