@@ -18,9 +18,7 @@ import dotenv from "dotenv";
 import axios from "axios";
 import commands from "./commands/commands.js";
 import { createRequire } from "module";
-import setinitprompt from "./commands/setinitprompt.js";
 const require = createRequire(import.meta.url);
-const fs = require("fs");
 const { MessageEmbed } = require('discord.js');
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `${process.env.MONGODB_URI}`;
@@ -67,10 +65,8 @@ async function setcontext(channelID, context) {
     if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
     {
     await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${context}` });
-	console.log(`Replaced document with ${channelID} with the more recent data for ${channelID} & context content in DB:${db}/${contextcollect}`);
     } else {
     await mongoclient.db(db).collection(contextcollect).insertOne({ channelID: `${channelID}`, context: `${context}` })
-	console.log(`New document ${channelID} with the new data context content in DB:${db}/${contextcollect}`);
     } 
 	
 	} finally {
@@ -89,10 +85,8 @@ async function setcontext(channelID, context) {
     {
     await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${[0,0]}` });
 	var clearcontextresponse = `Cleared message history of ${channelID}`
-	console.log(`Delteted document ${channelID} with the data context in DB:${db}/${contextcollect}`);
     } else {
 	var clearcontextresponse = `Cannot clear message history of ${channelID}`
-	console.log(`Cannot delete document ${channelID} with the data context in DB:${db}/${contextcollect} as it doesnt exsist`);
     } 
 	
 	} finally {
@@ -137,10 +131,8 @@ async function setcontext(channelID, context) {
 	  if(await mongoclient.db(db).collection(initialpromptcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
 	  {
 	  await mongoclient.db(db).collection(initialpromptcollect).replaceOne({ userID: `${userID}` }, { userID: `${userID}`, initialprompt: `${initalprompt}` });
-	  console.log(`Replaced document with ${userID} with the more recent data for ${userID} & ${initalprompt} content in DB:${db}/${initialpromptcollect}`);
 	  } else {
 	  await mongoclient.db(db).collection(initialpromptcollect).insertOne({ userID: `${userID}`, initialprompt: `${initalprompt}` })
-	  console.log(`New document ${userID} with the new data ${initalprompt} content in DB:${db}/${initialpromptcollect}`);
 	  } 
 	} finally {
 	  // Ensures that the client will close when you finish/error
@@ -151,7 +143,7 @@ async function setcontext(channelID, context) {
   async function readinitprompt(userID) {
 	// Connect the client to the server
 	await mongoclient.connect();
-	//Check if data already exists and replaces it
+	//Check if data exists
 	if (await mongoclient.db(db).collection(initialpromptcollect).countDocuments({userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
 	{
 	  const query = { userID: `${userID}` };
@@ -184,10 +176,8 @@ async function setcontext(channelID, context) {
     if(await mongoclient.db(db).collection(systemmessagecollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
     {
     await mongoclient.db(db).collection(systemmessagecollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, systemmessage: `${systemmessage}` });
-	console.log(`Replaced document with ${channelID} with the new data ${systemmessage} in DB:${db}/${systemmessagecollect}`);
     } else {
     await mongoclient.db(db).collection(systemmessagecollect).insertOne({ channelID: `${channelID}`, systemmessage: `${systemmessage}` })
-	console.log(`New document ${channelID} with the data ${systemmessage} content in DB:${db}/${systemmessagecollect}`);
     } 
 	} finally {
 	  // Ensures that the client will close when you finish/error
@@ -198,7 +188,7 @@ async function setcontext(channelID, context) {
   async function readsystemmsg(channelID) {
 	// Connect the client to the server
 	await mongoclient.connect();
-	//Check if data already exists and replaces it
+	//Check if data exists
 	if (await mongoclient.db(db).collection(systemmessagecollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
 	{
 	  const query = { channelID: `${channelID}` };
@@ -221,19 +211,296 @@ async function setcontext(channelID, context) {
 	return `${process.env.SYSTEM}`;
   }
   
-  async function addBlockeduser(userID) {
-	try {
-	  // Connect the client to the server
-	  await mongoclient.connect();
-	  await mongoclient.db(db).collection("blocked").insertOne({ userID: `${userID}`})
-	  console.log(`Inserted ${userID} to DB:cache/blocked`);
-	} finally {
+ 	async function checkBlockeduser(userID) {
+		// Connect the client to the server
+		await mongoclient.connect();
+		//Check if data exsists
+		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		await mongoclient.close();
+		return true
+		} 
+		// Ensures that the client will close when you finish/error
+		await mongoclient.close();
+		return false
+	}
+  
+	async function checkBlockedguild(guildID) {
+		// Connect the client to the server
+		await mongoclient.connect();
+		//Check if data exsists
+		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		await mongoclient.close();
+		return true
+		} 
+		// Ensures that the client will close when you finish/error
+		await mongoclient.close();
+		return false
+	}
+
+	async function checkBlockeduserreason(userID) {
+		// Connect the client to the server
+		await mongoclient.connect();
+		//Check if data exsists
+		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+		{
+			const query = { userID: `${userID}` };
+			const options = {
+			  // Sort matched documents in descending order by rating
+			  sort: { "blockreason": -1 },
+			  // Include only the `blockreason` field in the returned document
+			  projection: { _id: 0, blockreason: 1 },
+			};
+		
+			//Read blockreason from database
+			var readblockreasonresponse = await mongoclient.db(db).collection(blockedcollect).findOne(query, options);
+			readblockreasonresponse = JSON.stringify(readblockreasonresponse.blockreason).slice(1,-1)
+
+		await mongoclient.close();
+		return `${readblockreasonresponse}`
+		} 
+		// Ensures that the client will close when you finish/error
+		await mongoclient.close();
+		return `User is not blocked`
+	}
+
+	async function checkBlockedguildreason(guildID) {
+		// Connect the client to the server
+		await mongoclient.connect();
+		//Check if data exsists
+		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+			const query = { guildID: `${guildID}`};
+			const options = {
+			  // Sort matched documents in descending order by rating
+			  sort: { "blockreason": -1 },
+			  // Include only the `blockreason` field in the returned document
+			  projection: { _id: 0, blockreason: 1 },
+			};
+		
+			//Read blockreason from database
+			var readblockreasonresponse = await mongoclient.db(db).collection(blockedcollect).findOne(query, options);
+			readblockreasonresponse = JSON.stringify(readblockreasonresponse.blockreason).slice(1,-1)
+
+		await mongoclient.close();
+		return `${readblockreasonresponse}`
+		} 
+		// Ensures that the client will close when you finish/error
+		await mongoclient.close();
+		return `Guild is not blocked`
+	}
+
+	async function addBlockeduser(userID, reason) {
+		
+		  // Connect the client to the server
+		  await mongoclient.connect();
+	
+		  //Check if data exsists and inserts if not
+		  if(!await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+		  {
+			await mongoclient.db(db).collection(blockedcollect).insertOne({ userID: `${userID}`, blockreason: `${reason}` })
+			await mongoclient.close();
+			return `Blocked USER (${userID})`;
+		  } 
+		
+		// Ensures that the client will close when you finish/error
+		await mongoclient.close();
+		return `USER (${userID}) Is already blocked`
+	  }
+
+	  async function addBlockedguild(guildID, reason) {
+		
+		// Connect the client to the server
+		await mongoclient.connect();
+  
+		//Check if data exsists and inserts if not
+		if(!await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		  await mongoclient.db(db).collection(blockedcollect).insertOne({ guildID: `${guildID}`, blockreason: `${reason}` })
+		  await mongoclient.close();
+		  return `Blocked GUILD (${guildID})`;
+		} 
+	  
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
+	  return `GUILD (${guildID}) Is already blocked`;
 	}
-  }
 
+	async function removeBlockeduser(userID) {
+		
+		// Connect the client to the server
+		await mongoclient.connect();
+  
+		//Check if data exsists and inserts if not
+		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		  await mongoclient.db(db).collection(blockedcollect).deleteOne({ userID: `${userID}`})
+		  await mongoclient.close();
+		  return `Removed block on USER (${userID})`;
+		} 
+	  
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	  return `USER (${userID}) Is not blocked`
+	}
+	
+	async function removeBlockedguild(guildID) {
+		
+		// Connect the client to the server
+		await mongoclient.connect();
+  
+		//Check if data exsists and inserts if not
+		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		  await mongoclient.db(db).collection(blockedcollect).deleteOne({ guildID: `${guildID}`})
+		  await mongoclient.close();
+		  return `Removed block on GUILD (${guildID})`;
+		} 
+	  
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	  return `GUILD (${guildID}) Is not blocked`;
+	}
 
+	async function setwelcomesystemmsg(guildID, systemmessage) {
+		try {
+		  // Connect the client to the server
+		  await mongoclient.connect();
+	
+		//Check if data already exsists and replaces it
+		if(await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).replaceOne({ guildID: `${guildID}` }, { guildID: `${guildID}`, systemmessage: `${systemmessage}` });
+		} else {
+		await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).insertOne({ guildID: `${guildID}`, systemmessage: `${systemmessage}` })
+		} 
+		} finally {
+		  // Ensures that the client will close when you finish/error
+		  await mongoclient.close();
+		}
+	  }
+	
+	  async function readwelcomesystemmsg(guildID) {
+		// Connect the client to the server
+		await mongoclient.connect();
+		//Check if data exists
+		if (await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		  const query = { guildID: `${guildID}` };
+		  const options = {
+			// Sort matched documents in descending order by rating
+			sort: { "systemmessage": -1 },
+			// Include only the `systemmessage` field in the returned document
+			projection: { _id: 0, systemmessage: 1 },
+		  };
+	  
+		  //Read systemmessage from database
+		  var readsystemmessageresponse = await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).findOne(query, options);
+		  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.systemmessage).slice(1,-1)
+	  
+		  await mongoclient.close();
+		  return readsystemmessageresponse;
+		}
+		
+		await mongoclient.close();
+		return `${process.env.SYSTEM}`;
+	  }
+
+	  async function setwelcomesystemmsgboolean(guildID, boolean) {
+		try {
+		  // Connect the client to the server
+		  await mongoclient.connect();
+	
+		//Check if data already exsists and replaces it
+		if(await mongoclient.db(db).collection(welcomemessagebooleancollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		await mongoclient.db(db).collection(welcomemessagebooleancollect).replaceOne({ guildID: `${guildID}` }, { guildID: `${guildID}`, boolean: `${boolean}` });
+		} else {
+		await mongoclient.db(db).collection(welcomemessagebooleancollect).insertOne({ guildID: `${guildID}`, boolean: `${boolean}` })
+		} 
+		} finally {
+		  // Ensures that the client will close when you finish/error
+		  await mongoclient.close();
+		}
+	  }
+	
+	  async function readwelcomesystemmsgboolean(guildID) {
+		// Connect the client to the server
+		await mongoclient.connect();
+		//Check if data exists
+		if (await mongoclient.db(db).collection(welcomemessagebooleancollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		  const query = { guildID: `${guildID}` };
+		  const options = {
+			// Sort matched documents in descending order by rating
+			sort: { "boolean": -1 },
+			// Include only the `boolean` field in the returned document
+			projection: { _id: 0, boolean: 1 },
+		  };
+	  
+		  //Read boolean from database
+		  var readbooleanresponse = await mongoclient.db(db).collection(welcomemessagebooleancollect).findOne(query, options);
+		  readbooleanresponse = JSON.stringify(readbooleanresponse.boolean).slice(1,-1)
+		  readbooleanresponse = getBoolean(readbooleanresponse)
+	  
+		  await mongoclient.close();
+		  return readbooleanresponse;
+		}
+		
+		await mongoclient.close();
+		return false;
+	  }
+
+	  async function removeChannel(channelID) {
+		
+		// Connect the client to the server
+		await mongoclient.connect();
+  
+		//Check if data exsists and inserts if not
+		if(await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		  await mongoclient.db(db).collection(channelscollect).deleteOne({ channelID: `${channelID}`})
+		  await mongoclient.close();
+		  return `Removed channel (${channelID})`;
+		} 
+	  
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	  return `CHANNEL (${channelID}) is not listed`;
+	}
+
+	async function addChannel(channelID) {
+		
+		// Connect the client to the server
+		await mongoclient.connect();
+  
+		//Check if data exsists and inserts if not
+		if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		  await mongoclient.db(db).collection(channelscollect).insertOne({ channelID: `${channelID}`})
+		  await mongoclient.close();
+		  return `Added (${channelID})`;
+		} 
+	  
+	  // Ensures that the client will close when you finish/error
+	  await mongoclient.close();
+	  return `CHANNEL (${channelID}) is already listed`;
+	}
+
+	async function checkChannel(channelID) {
+		// Connect the client to the server
+		await mongoclient.connect();
+		//Check if data exsists
+		if(await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+		{
+		await mongoclient.close();
+		return true
+		} 
+		// Ensures that the client will close when you finish/error
+		await mongoclient.close();
+		return false
+	}
 
 //Prevent uncaught error crashes
 process.on('uncaughtException', function (err) {
@@ -242,37 +509,6 @@ process.on('uncaughtException', function (err) {
   });
 
 dotenv.config();
-
-if (!fs.existsSync("./cache")) {
-	 fs.mkdirSync("./cache"); 
-	};
-if (!fs.existsSync("./cache/channels")) {
-	 fs.writeFileSync("./cache/channels", JSON.stringify(`,${process.env.CHANNELS}`), 'utf8')
-	}; 
-if (!fs.existsSync(`./cache/blockedguilds`)) {
-	fs.writeFileSync(`./cache/blockedguilds`, JSON.stringify(`,${process.env.BLOCKED_GUILDS}`, `utf8`))
-	};
-if (!fs.existsSync(`./cache/blockedusers`)) {
-	fs.writeFileSync(`./cache/blockedusers`, JSON.stringify(`,${process.env.BLOCKED_USERS}`, `utf8`))
-	};
-if (!fs.existsSync("./cache")) {
-	 fs.mkdirSync("./cache"); 
-	};
-if (!fs.existsSync("./cache/context")) {
-	 fs.mkdirSync("./cache/context") 
-	};
-if (!fs.existsSync("./cache/initial-prompt")) {
-	 fs.mkdirSync("./cache/initial-prompt") 
-	};
-if (!fs.existsSync("./cache/system-message")) {
-	 fs.mkdirSync("./cache/system-message")
-	};
-if (!fs.existsSync(`./cache/welcomemessageboolean`)) {
-	fs.mkdirSync("./cache/welcomemessageboolean")
-	};
-if (!fs.existsSync(`./cache/welcomemessagesystem`)) {
-	fs.mkdirSync("./cache/welcomemessagesystem")
-	};
 
 const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
 const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
@@ -527,16 +763,9 @@ client.on(Events.MessageCreate, async message => {
 	try {
 		await message.fetch();
 
-		if (fs.existsSync("./cache/channels")) {
-			var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8')).slice(1);
-		}
-		else {
-			var channels = process.env.CHANNELS.split(",");
-		}
-
 		// return if not in the right channel
 		const channelID = message.channel.id;
-		if (message.guild && !channels.includes(channelID)) return;
+		if (message.guild && !await checkChannel(message.channel.id)) return;
 
 		// return if user is a bot, or non-default message
 		if (!message.author.id) return;
@@ -565,61 +794,44 @@ client.on(Events.MessageCreate, async message => {
 
 		if (message.type == MessageType.Default && (requiresMention && message.guild && !message.content.match(myMention))) return;
 
-		if (fs.existsSync(`./cache/blockedusers`)) {
-			var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-		}
 
-		if (blockedUsers.includes(`${message.author.id}`)) {
-
+		if (await checkBlockeduser(message.author.id)) {
 			try {
-	
 				let blockedUsermsg = `You (${message.author.username} - ${message.author.displayName} - ${message.author.id} - <@${message.author.id}>) have been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
 				await message.reply(blockedUsermsg);
 				log(LogLevel.Debug, `Sent message "${blockedUsermsg}"`)
 				} catch (error) {
 				logError(error);
 			}
-
-			return
-		} 
+			return}
+		
 
 		
 		if (message.guild) {
 			await message.guild.channels.fetch();
 			await message.guild.members.fetch();
-
-			if (fs.existsSync(`./cache/blockedguilds`)) {
-				var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-			}
 		
-			if (blockedGuilds.includes(`${message.guild.id}`)) {
-					
+			if (await checkBlockedguild(message.guild.id)) {
 				log(LogLevel.Debug, `Message sent in an guild that is blocked!! (${message.guild.name} - ${message.guild.id})`)
-		
 				try {
 					const channelG = message.guild.channels.cache.find(c =>
 						c.type === ChannelType.GuildText &&
 						c.permissionsFor(message.guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
 					)
-		
 					let responseLeavemsg = `This guild (${message.guild.name} - ${message.guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
 					await channelG.send(responseLeavemsg);
 					log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
 					} catch (error) {
 					logError(error);
 				}
-		
 				try {
 				message.guild.leave();
 				log(LogLevel.Debug, `Left the guild (${message.guild.name} - ${message.guild.id})`)
 				} catch (error) {
 					logError(error);
 				}
-	
 				return
-	
 			}
-
 		}
 
 		userInput = userInput
@@ -683,35 +895,11 @@ client.on(Events.MessageCreate, async message => {
 				await replySplitMessage(message, `${replyBLOCKEDmessage}`)
 
 					if(message.guild){
-					var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-					blockedGuilds += `,${message.guild.id}`
-
-					fs.writeFileSync(`./cache/blockedguilds`,
-
-						JSON.stringify(blockedGuilds), 'utf8',
-
-						function (err) {
-							if (err) {
-								logError(err)('Crap happens');
-							}
-						}
-					);
+					await addBlockedguild(message.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`) 
 					log(LogLevel.Debug, `Added to blocked guilds (${message.guild.name} - ${message.guild.id})`)
 					}
+					await addBlockeduser(message.author.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 
-					var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-					blockedUsers += `,${message.author.id}`
-
-					fs.writeFileSync(`./cache/blockedusers`,
-
-						JSON.stringify(blockedUsers), 'utf8',
-
-						function (err) {
-							if (err) {
-								logError(err)('Crap happens');
-							}
-						}
-					);
 					log(LogLevel.Debug, `Added to the blocked users (${message.author.username} - ${message.author.displayName} - ${message.author.id})`)
 
 					if(message.guild){
@@ -825,17 +1013,6 @@ client.on(Events.MessageCreate, async message => {
 		
 		setcontext(message.channel.id, context)
 
-		fs.writeFileSync(`./cache/context/context-${message.channel.id}`,
-
-			JSON.stringify(context), 'utf8',
-
-			function (err) {
-				if (err) {
-					logError(err);
-				}
-			}
-		);
-
 		context == null
 
 	} catch (error) {
@@ -855,18 +1032,12 @@ client.on(Events.MessageCreate, async message => {
 if (welcomeuser) {
 	client.on('guildMemberAdd', async member => {
 
-		if (fs.existsSync(`./cache/blockedusers`)) {
-			var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-		}
-
-		if (blockedUsers.includes(`${member.id}`)) {
-
+		if (await checkBlockeduser(member.id)) {
+		} else {
+		if (await checkBlockedguild(member.guild.id)) {
 		} else {
 
-
-
-		if (fs.existsSync(`./cache/welcomemessageboolean/${member.guild.id}`)) {
-		if (getBoolean(fs.readFileSync(`./cache/welcomemessageboolean/${member.guild.id}`))) {
+		if (await readwelcomesystemmsgboolean(member.guild.id)) {
 		try {
 
 			var dmchannel = await member.createDM()
@@ -895,10 +1066,8 @@ if (welcomeuser) {
 			log(LogLevel.Debug, prompt)
 			log(LogLevel.Debug, `SYSTEM MESSAGE\n${system}`)
 
-			if (fs.existsSync(`./cache/welcomemessagesystem/${member.guild.id}`)){
-				var guildsys = fs.readFileSync(`./cache/welcomemessagesystem/${member.guild.id}`)
-				var system = `You write welcoming messages for the discord server ${member.guild.name}.\n${guildsys}`
-			} 
+				var guildsys = await readwelcomesystemmsg(member.guild.id)
+				system = `You write welcoming messages for the discord server ${member.guild.name}.\n${guildsys}`
 
 			var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
 			response = (await makeRequest("/api/generate", "post", {
@@ -926,12 +1095,7 @@ if (welcomeuser) {
 			logError(error);
 					}
 				}
-			} else {
-
-					fs.writeFileSync(`./cache/welcomemessageboolean/${member.guild.id}`, `false`)
-
-				}
-			
+			} 
 			} 
 		}
 
@@ -941,13 +1105,8 @@ if (welcomeuser) {
 
 	client.on('guildCreate', async guild => {
 		if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
-			
-	
-		if (fs.existsSync(`./cache/blockedguilds`)) {
-			var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-		}
 
-		if (blockedGuilds.includes(`${guild.id}`)) {
+		if (await checkBlockedguild(guild.id)) {
 			
 			log(LogLevel.Debug, `Joined a guild that is blocked!! (${guild.name} - ${guild.id})`)
 
@@ -969,11 +1128,9 @@ if (welcomeuser) {
 			guild.leave();
 			log(LogLevel.Debug, `Left the guild (${guild.name} - ${guild.id})`)
 
-		} else { 
+		} else {
 
 		try {
-	
-			fs.writeFileSync(`./cache/welcomemessageboolean/${guild.id}`, `false`)
 
 			const channelG = guild.channels.cache.find(c =>
 				c.type === ChannelType.GuildText &&
@@ -988,14 +1145,8 @@ if (welcomeuser) {
 				// context if the message is not a reply
 	
 				if (context == null) {
-					if (fs.existsSync(`./cache/context/context-${channelG.id}`)) {
-						context = JSON.parse(fs.readFileSync(`./cache/context/context-${channelG.id}`, 'utf8'));
-					}
-					else {
-						context = [0, 0]
-					}
-				};
-			} catch { var context = [0, 0] }
+				context = await readcontext(channelG.id)
+				}
 	
 			var prompt = `Write a message to introduce yourself in the new discord server you were invited to and joined ${guild.name}`;
 			const model = process.env.MODEL;
@@ -1033,24 +1184,7 @@ if (welcomeuser) {
 	
 	
 			try {
-				if (fs.existsSync("./cache/channels")) {
-					var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
-				}
-				if (!channels.includes(`${channelG.id}`)) {
-	
-					channels += `,${channelG.id}`
-	
-					fs.writeFileSync(`./cache/channels`,
-	
-						JSON.stringify(channels), 'utf8',
-	
-						function (err) {
-							if (err) {
-								logError(err)('Crap happens');
-							}
-						}
-					);
-				}
+				await addChannel(channelG.id)
 			} catch (error) {
 				logError(error);
 			}
@@ -1058,17 +1192,7 @@ if (welcomeuser) {
 			context = response.filter(e => e.done && e.context)[0].context;
 	
 			try {
-				fs.writeFileSync(`./cache/context/context-${channelG.id}`,
-	
-					JSON.stringify(context), 'utf8',
-	
-					function (err) {
-						if (err) {
-							logError(err);
-						}
-					}
-				);
-			}
+			await setcontext(channelG.id, context) }
 			catch (error) {
 				logError(error)
 			}
@@ -1081,19 +1205,16 @@ if (welcomeuser) {
 				logError(error);
 			}
 		} catch (error) { logError(error); }
-		}}}); 
+		}  catch (error) { logError(error); } } } } );
+	
 
 client.on(Events.InteractionCreate, async (interaction) => {
 	if (!interaction.isCommand()) return;
 	const { commandName, options } = interaction;
 
-	if (fs.existsSync(`./cache/blockedguilds`)) {
-		var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-	}
-
 	if (!interaction.guild) {var interactionGuildID = `100000000000000000`} else {var interactionGuildID = interaction.guild.id}
 
-	if (blockedGuilds.includes(`${interactionGuildID}`)) {
+	if (await checkBlockedguild(interactionGuildID)) {
 			
 		log(LogLevel.Debug, `Interaction ran in an guild that is blocked!! (${interaction.guild.name} - ${interaction.guild.id})`)
 
@@ -1121,11 +1242,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 	} else {
 
-		if (fs.existsSync(`./cache/blockedusers`)) {
-			var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-		}
-
-		if (blockedUsers.includes(`${interaction.user.id}`)) {
+		if (await checkBlockeduser(interaction.user.id)) {
 
 			try {
 	
@@ -1171,35 +1288,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						})}
 
 						if(interaction.guild){
-						var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-						blockedGuilds += `,${interaction.guild.id}`
-
-						fs.writeFileSync(`./cache/blockedguilds`,
-
-							JSON.stringify(blockedGuilds), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
+						await addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 						log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 						}
-
-						var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-						blockedUsers += `,${interaction.user.id}`
-
-						fs.writeFileSync(`./cache/blockedusers`,
-
-							JSON.stringify(blockedUsers), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
+						await addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 						log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
 
 						if(interaction.guild){
@@ -1366,35 +1458,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						})}
 
 						if(interaction.guild){
-						var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-						blockedGuilds += `,${interaction.guild.id}`
-
-						fs.writeFileSync(`./cache/blockedguilds`,
-
-							JSON.stringify(blockedGuilds), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
+						await addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 						log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 						}
-
-						var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-						blockedUsers += `,${interaction.user.id}`
-
-						fs.writeFileSync(`./cache/blockedusers`,
-
-							JSON.stringify(blockedUsers), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
+						await addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 						log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
 
 						if(interaction.guild){
@@ -1600,35 +1667,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						})}
 
 						if(interaction.guild){
-						var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-						blockedGuilds += `,${interaction.guild.id}`
-
-						fs.writeFileSync(`./cache/blockedguilds`,
-
-							JSON.stringify(blockedGuilds), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
+						await addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 						log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 						}
-
-						var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-						blockedUsers += `,${interaction.user.id}`
-
-						fs.writeFileSync(`./cache/blockedusers`,
-
-							JSON.stringify(blockedUsers), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
+						await addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 						log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
 
 						if(interaction.guild){
@@ -1661,37 +1703,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 										})}
 				
 										if(interaction.guild){
-										var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-										blockedGuilds += `,${interaction.guild.id}`
-				
-										fs.writeFileSync(`./cache/blockedguilds`,
-				
-											JSON.stringify(blockedGuilds), 'utf8',
-				
-											function (err) {
-												if (err) {
-													logError(err)('Crap happens');
-												}
-											}
-										);
+										await addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 										log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 										}
-				
-										var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-										blockedUsers += `,${interaction.user.id}`
-				
-										fs.writeFileSync(`./cache/blockedusers`,
-				
-											JSON.stringify(blockedUsers), 'utf8',
-				
-											function (err) {
-												if (err) {
-													logError(err)('Crap happens');
-												}
-											}
-										);
+										addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 										log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
-				
 										if(interaction.guild){
 										try {
 										interaction.guild.leave();
@@ -1863,35 +1879,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							})}
 	
 							if(interaction.guild){
-							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-							blockedGuilds += `,${interaction.guild.id}`
-	
-							fs.writeFileSync(`./cache/blockedguilds`,
-	
-								JSON.stringify(blockedGuilds), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
-							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
+							addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							}
-	
-							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-							blockedUsers += `,${interaction.user.id}`
-	
-							fs.writeFileSync(`./cache/blockedusers`,
-	
-								JSON.stringify(blockedUsers), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
 	
 							if(interaction.guild){
@@ -1924,37 +1914,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 										})}
 				
 										if(interaction.guild){
-										var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-										blockedGuilds += `,${interaction.guild.id}`
-				
-										fs.writeFileSync(`./cache/blockedguilds`,
-				
-											JSON.stringify(blockedGuilds), 'utf8',
-				
-											function (err) {
-												if (err) {
-													logError(err)('Crap happens');
-												}
-											}
-										);
+										addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 										log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 										}
-				
-										var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-										blockedUsers += `,${interaction.user.id}`
-				
-										fs.writeFileSync(`./cache/blockedusers`,
-				
-											JSON.stringify(blockedUsers), 'utf8',
-				
-											function (err) {
-												if (err) {
-													logError(err)('Crap happens');
-												}
-											}
-										);
+										addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 										log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
-				
 										if(interaction.guild){
 										try {
 										interaction.guild.leave();
@@ -1977,13 +1941,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				try {
 					// context if the message is not a reply
 
-					if (context == null) {
-						if (fs.existsSync(`./cache/context/context-${interaction.channel.id}`)) {
-							context = JSON.parse(fs.readFileSync(`./cache/context/context-${interaction.channel.id}`, 'utf8'));
-						}
-						else {
-							context = [0, 0]
-						}
+					if (context == null) {	
+					context = await readcontext(interaction.channel.id)
 					};
 				} catch { var context = [0, 0] }
 				var prompt = options.getString("prompt")
@@ -2054,17 +2013,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				context = response.filter(e => e.done && e.context)[0].context;
 
 				try {
-					fs.writeFileSync(`./cache/context/context-${interaction.channel.id}`,
-
-						JSON.stringify(context), 'utf8',
-
-						function (err) {
-							if (err) {
-								logError(err);
-							}
-						}
-					);
-				}
+					await setcontext(interaction.channel.id, context)}
 				catch (error) {
 					logError(`interaction.channel.id couldnt be found so context was not cached (However this is not an fatal error, no need to panic!)`)
 				}
@@ -2137,12 +2086,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						// context if the message is not a reply
 	
 						if (context == null) {
-							if (fs.existsSync(`./cache/context/context-${interaction.channel.id}`)) {
-								context = JSON.parse(fs.readFileSync(`./cache/context/context-${interaction.channel.id}`, 'utf8'));
-							}
-							else {
-								context = [0, 0]
-							}
+							
+						context = await readcontext(interaction.channel.id);
 						};
 					} catch { var context = [0, 0] }
 					var prompt = `${interaction.targetMessage}`
@@ -2213,16 +2158,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					context = response.filter(e => e.done && e.context)[0].context;
 	
 					try {
-						fs.writeFileSync(`./cache/context/context-${interaction.channel.id}`,
-	
-							JSON.stringify(context), 'utf8',
-	
-							function (err) {
-								if (err) {
-									logError(err);
-								}
-							}
-						);
+					await setcontext(interaction.channel.id, context);
 					}
 					catch (error) {
 						logError(`interaction.channel.id couldnt be found so context was not cached (However this is not an fatal error, no need to panic!)`)
@@ -2447,37 +2383,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							})}
 	
 							if(interaction.guild){
-							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-							blockedGuilds += `,${interaction.guild.id}`
-	
-							fs.writeFileSync(`./cache/blockedguilds`,
-	
-								JSON.stringify(blockedGuilds), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 							}
-	
-							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-							blockedUsers += `,${interaction.user.id}`
-	
-							fs.writeFileSync(`./cache/blockedusers`,
-	
-								JSON.stringify(blockedUsers), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
-	
 							if(interaction.guild){
 							try {
 							interaction.guild.leave();
@@ -2563,37 +2473,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							})}
 	
 							if(interaction.guild){
-							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-							blockedGuilds += `,${interaction.guild.id}`
-	
-							fs.writeFileSync(`./cache/blockedguilds`,
-	
-								JSON.stringify(blockedGuilds), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 							}
-	
-							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-							blockedUsers += `,${interaction.user.id}`
-	
-							fs.writeFileSync(`./cache/blockedusers`,
-	
-								JSON.stringify(blockedUsers), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
-	
 							if(interaction.guild){
 							try {
 							interaction.guild.leave();
@@ -2679,37 +2563,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							})}
 	
 							if(interaction.guild){
-							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-							blockedGuilds += `,${interaction.guild.id}`
-	
-							fs.writeFileSync(`./cache/blockedguilds`,
-	
-								JSON.stringify(blockedGuilds), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`);
 							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 							}
-	
-							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-							blockedUsers += `,${interaction.user.id}`
-	
-							fs.writeFileSync(`./cache/blockedusers`,
-	
-								JSON.stringify(blockedUsers), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`);
 							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
-	
 							if(interaction.guild){
 							try {
 							interaction.guild.leave();
@@ -2797,37 +2655,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							})}
 	
 							if(interaction.guild){
-							var blockedGuilds = JSON.parse(fs.readFileSync(`./cache/blockedguilds`, 'utf8'));
-							blockedGuilds += `,${interaction.guild.id}`
-	
-							fs.writeFileSync(`./cache/blockedguilds`,
-	
-								JSON.stringify(blockedGuilds), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
 							}
-	
-							var blockedUsers = JSON.parse(fs.readFileSync(`./cache/blockedusers`, 'utf8'));
-							blockedUsers += `,${interaction.user.id}`
-	
-							fs.writeFileSync(`./cache/blockedusers`,
-	
-								JSON.stringify(blockedUsers), 'utf8',
-	
-								function (err) {
-									if (err) {
-										logError(err)('Crap happens');
-									}
-								}
-							);
+							addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
 							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
-	
 							if(interaction.guild){
 							try {
 							interaction.guild.leave();
@@ -3114,24 +2946,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			log(LogLevel.Debug, `Attempting to run /addchannel`)
 			try {
 				if (interaction.guildId != null) {
-					if (fs.existsSync("./cache/channels")) {
-						var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
-					}
-					if (!channels.includes(`${interaction.channel.id}`)) {
-
-						channels += `,${interaction.channel.id}`
-
-						fs.writeFileSync(`./cache/channels`,
-
-							JSON.stringify(channels), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
-
 						var responseEmbed = {
 							color: embedColor,
 							title: 'Add channel',
@@ -3151,7 +2965,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							],
 							timestamp: new Date().toISOString(),
 							footer: {
-								text: `Successfully added <#${interaction.channel.id}>`,
+								text: `${await addChannel(interaction.channel.id)}`,
 								icon_url: embedIcon,
 							},
 						};
@@ -3160,55 +2974,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						await interaction.editReply({
 							embeds: [responseEmbed],
 						})
-
-					} else {
-						var responseEmbed = {
-							color: embedColor,
-							title: 'Add channel',
-							author: {
-								name: embedName,
-								url: embedLink,
-							},
-							description: `Cannot add the channel <#${interaction.channel.id}> as it is already listed as a channel to use!`,
-							thumbnail: {
-								url: embedThumb,
-							},
-							timestamp: new Date().toISOString(),
-							footer: {
-								text: `Error(already-listed)`,
-								icon_url: embedIcon,
-							},
-						};
-					
-						await interaction.deferReply();
-						await interaction.editReply({
-							embeds: [responseEmbed],
-						})
-					}
-				} else {
-					var responseEmbed = {
-						color: embedColor,
-						title: 'Add channel',
-						author: {
-							name: embedName,
-							url: embedLink,
-						},
-						description: `You cannot add this channel as you are not running this command inside a server!`,
-						thumbnail: {
-							url: embedThumb,
-						},
-						timestamp: new Date().toISOString(),
-						footer: {
-							text: `Error(no-guild)`,
-							icon_url: embedIcon,
-						},
-					};
-				
-					await interaction.deferReply();
-					await interaction.editReply({
-						embeds: [responseEmbed],
-					})
-
 				}
 			} catch (error) {
 				logError(error);
@@ -3233,25 +2998,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			log(LogLevel.Debug, `Attempting to run /rmchannel`)
 			try {
 				if (interaction.guildId != null) {
-					if (fs.existsSync("./cache/channels")) {
-						var channels = JSON.parse(fs.readFileSync("./cache/channels", 'utf8'));
-					}
-					if (channels.includes(`${interaction.channel.id}`)) {
-
-						channels = channels.replace(`,${interaction.channel.id}`, "")
-						channels = channels.replace(`${interaction.channel.id}`, "")
-
-
-						fs.writeFileSync(`./cache/channels`,
-
-							JSON.stringify(channels), 'utf8',
-
-							function (err) {
-								if (err) {
-									logError(err)('Crap happens');
-								}
-							}
-						);
 
 						var responseEmbed = {
 							color: embedColor,
@@ -3272,7 +3018,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							],
 							timestamp: new Date().toISOString(),
 							footer: {
-								text: `Successfully removed <#${interaction.channel.id}>`,
+								text: `${await removeChannel(interaction.channel.id)}`,
 								icon_url: embedIcon,
 							},
 						};
@@ -3281,55 +3027,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						await interaction.editReply({
 							embeds: [responseEmbed],
 						})
-
-					} else {
-
-						var responseEmbed = {
-							color: embedColor,
-							title: 'Remove channel',
-							author: {
-								name: embedName,
-								url: embedLink,
-							},
-							description: `Cannot add the channel <#${interaction.channel.id}> as it is not listed as a channel to use!`,
-							thumbnail: {
-								url: embedThumb,
-							},
-							timestamp: new Date().toISOString(),
-							footer: {
-								text: `Error(not-listed)`,
-								icon_url: embedIcon,
-							},
-						};
-					
-						await interaction.deferReply();
-						await interaction.editReply({
-							embeds: [responseEmbed],
-						})
-					}
-				} else {
-					var responseEmbed = {
-						color: embedColor,
-						title: 'Remove channel',
-						author: {
-							name: embedName,
-							url: embedLink,
-						},
-						description: `You cannot remove this channel as you are not running this command inside a server!`,
-						thumbnail: {
-							url: embedThumb,
-						},
-						timestamp: new Date().toISOString(),
-						footer: {
-							text: `Error(no-guild)`,
-							icon_url: embedIcon,
-						},
-					};
-				
-					await interaction.deferReply();
-					await interaction.editReply({
-						embeds: [responseEmbed],
-					})
 				}
 			} catch (error) {
 				logError(error);
@@ -3745,13 +3442,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				break;
 				case "enablewelcome":
 					log(LogLevel.Debug, `Attempting to run /enablewelcome`)
-					if (fs.existsSync(`./cache/welcomemessageboolean/${interaction.guild.id}`)) {
-					if (!getBoolean(fs.readFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`))){
+					if (!await readwelcomesystemmsgboolean(interaction.guild.id)){
 					try {
 						await interaction.deferReply();
 
 						try {
-							fs.writeFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`, `true`)
+							setwelcomesystemmsgboolean(interaction.guild.id, true)
 						} catch (error) {
 							logError(error)
 						}
@@ -3836,18 +3532,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					}
 				}
 			}
-		}
 					log(LogLevel.Debug, `Finished responding to /enablewelcome`)
 					break;
 					case "disablewelcome":
 						log(LogLevel.Debug, `Attempting to run /disablewelcome`)
-						if (fs.existsSync(`./cache/welcomemessageboolean/${interaction.guild.id}`)) {
-							if (getBoolean(fs.readFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`))){
+							if (await readwelcomesystemmsgboolean(interaction.guild.id)){
 							try {
 								await interaction.deferReply();
 		
 								try {
-									fs.writeFileSync(`./cache/welcomemessageboolean/${interaction.guild.id}`, `false`)
+								setwelcomesystemmsgboolean(interaction.guild.id, false)
 								} catch (error) {
 									logError(error)
 								}
@@ -3932,15 +3626,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							}
 						}
 					}
-				}
 						log(LogLevel.Debug, `Finished responding to /disablewelcome`)
 						break;
 						case "setwelcomesysmsg":
 			log(LogLevel.Debug, `Attempting to run /setwelcomesysmsg`)
 			try {
 				
-				 fs.writeFileSync(`./cache/welcomemessagesystem/${interaction.guild.id}`, options.getString("sysmsg"))
-					
+				await setwelcomesystemmsg(interaction.guild.id, options.getString("sysmsg"))
 
 				var responseEmbed = {
 					color: embedColor,
