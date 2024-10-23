@@ -36,6 +36,7 @@ const useChannelname = getBoolean(process.env.USECHANNELNAME);
 const requiresMention = getBoolean(process.env.REQUIRES_MENTION);
 const useNickname = getBoolean(process.env.USENICKNAME);
 var model = process.env.MODEL;
+var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
 
 // All the mongo db functions
 // Mongo enviorment variables
@@ -516,6 +517,42 @@ async function checkChannel(channelID) {
 		return false
 }
 
+async function checkForBlockedWordsUSER(user, uncheckedcontent) {
+BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+var bound = '[^\\w\u00c0-\u02c1\u037f-\u0587\u1e00-\u1ffe]';
+var regex = new RegExp('(?:^|' + bound + ')(?:'
+                       + BLOCKED_PHRASES.join('|')
+                       + ')(?=' + bound + '|$)', 'i');
+	if (regex.test(uncheckedcontent)) {
+		var dmchannel = await user.createDM();
+		dmchannel.send(`You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`);
+		await addBlockeduser(user.id);
+		return true;
+	}
+	return false;
+}
+
+async function checkForBlockedWordsGUILD(guild, uncheckedcontent) {
+	BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
+	var bound = '[^\\w\u00c0-\u02c1\u037f-\u0587\u1e00-\u1ffe]';
+	var regex = new RegExp('(?:^|' + bound + ')(?:'
+						   + BLOCKED_PHRASES.join('|')
+						   + ')(?=' + bound + '|$)', 'i');
+		if (regex.test(uncheckedcontent)) {
+			const channelG = guild.channels.cache.find(c =>
+				c.type === ChannelType.GuildText &&
+				c.permissionsFor(guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
+			)
+			await channelG.sendTyping();
+			channelG.send(`The guild has been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`);
+			await addBlockedguild(guild.id);
+			guild.leave();
+			return true;
+		}
+		return false;
+	}
+
+
 // Prevent uncaught Exception stops
 process.on('uncaughtException', function (err) {
 	console.error(err);
@@ -876,39 +913,16 @@ client.on(Events.MessageCreate, async message => {
 			messages[channelID] = { amount: 0, last: null };
 		}
 
+		if(message.guild){
+		if (checkForBlockedWordsGUILD(message.guild, userInput) && checkForBlockedWordsUSER(message.user, userInput)){
+			return;
+		}} else {
+			if (checkForBlockedWordsUSER(message.user, userInput)){
+			return;
+			}
+		}
+
 		log(LogLevel.Debug, `Starting response to message ${userInput}`)
-
-		let flag=false;
-		var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
-		var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
-		for (const item of BLOCKED_PHRASES) {
-			if (userInput.includes(item)) {
-
-				console.log(`Freakout and crashout \n${message.author.username} - ${message.author.displayName} - ${message.author.id} \njust attempted to make an response with @alice with the blocked phrase ${item}`)
-					
-				var replyBLOCKEDmessage = `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
-				await replySplitMessage(message, `${replyBLOCKEDmessage}`)
-
-					if(message.guild){
-					await addBlockedguild(message.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`) 
-					log(LogLevel.Debug, `Added to blocked guilds (${message.guild.name} - ${message.guild.id})`)
-					}
-					await addBlockeduser(message.author.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`)
-
-					log(LogLevel.Debug, `Added to the blocked users (${message.author.username} - ${message.author.displayName} - ${message.author.id})`)
-
-					if(message.guild){
-					try {
-					message.guild.leave();
-					log(LogLevel.Debug, `Left the guild (${message.guild.name} - ${message.guild.id})`)
-					} catch (error) {
-							logError(error);
-					}
-					}
-					
-					//This is black magic but this works to prevent generation!!
-					return flag=true;} }
-
 
 		// start typing
 		typing = true;
