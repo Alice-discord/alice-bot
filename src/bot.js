@@ -24,7 +24,6 @@ import commands from "./commands/commands.js";
 const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
 const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
 const FluxServers = process.env.WEBUIFORGE.split(",").map(url => ({ url: new URL(url), available: true }));
-const showStartOfConversation = getBoolean(process.env.SHOW_START_OF_CONVERSATION);
 const randomServer = getBoolean(process.env.RANDOM_SERVER);
 const usesystime = getBoolean(process.env.DATEINMESSAGE);
 const useutctime = getBoolean(process.env.UTCTIMEINMESSAGE);
@@ -36,13 +35,15 @@ const useChannelname = getBoolean(process.env.USECHANNELNAME);
 const requiresMention = getBoolean(process.env.REQUIRES_MENTION);
 const useNickname = getBoolean(process.env.USENICKNAME);
 var model = process.env.MODEL;
+var embedmodel = process.env.EMBEDDINGMODEL;
 var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES.split(",");
 
-// All the mongo db functions
 // Mongo enviorment variables
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `${process.env.MONGODB_URI}`;
 const db = `${process.env.MONGODB_DB}`;
+const embeddb = `${process.env.MONGO_EMBEDDINGS_DB}`;
+const embedcollect = `${process.env.MONGO_EMBEDDINGS_COLLECTION}`;
 const contextcollect = `${process.env.MONGO_CONTEXT_COLLECTION}`;
 const blockedcollect = `${process.env.MONGO_BLOCKED_COLLECTION}`;
 const channelscollect = `${process.env.MONGO_CHANNELS_COLLECTION}`;
@@ -50,22 +51,21 @@ const initialpromptcollect = `${process.env.MONGO_INITIAL_PROMPT_COLLECTION}`;
 const systemmessagecollect = `${process.env.MONGO_SYSTEM_MESSAGE_COLLECTION}`;
 const welcomemessagebooleancollect = `${process.env.MONGO_WELCOME_MESSAGE_BOOLEAN_COLLECTION}`;
 const welcomemessagesystemmessagecollect = `${process.env.MONGO_WELCOME_MESSAGE_SYSTEM_MESSAGE_COLLECTION}`;
-
 const mongoclient = new MongoClient(uri,  {
 	monitorCommands: true,
         serverApi: {
             version: ServerApiVersion.v1,
-            strict: true,
             deprecationErrors: true,
         }
 });
+
 async function testmongo() {
 	try {
 	  // Connect the client to the server
 	  await mongoclient.connect();
 	  // Send a ping to confirm a successful connection
 	  await mongoclient.db("admin").command({ ping: 1 });
-	  console.log("You successfully connected to MongoDB!");
+	  console.info("You successfully connected to MongoDB!");
 	} finally {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
@@ -99,7 +99,7 @@ async function clearcontext(channelID) {
  	//Check if data already exsists and replaces it
     if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
     {
-    await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${[0,0]}` });
+    await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${[0]}` });
 	var clearcontextresponse = `Cleared message history of ${channelID}`
     } else {
 	var clearcontextresponse = `Cannot clear message history of ${channelID}`
@@ -135,7 +135,7 @@ async function readcontext(channelID) {
 	}
 	
 	await mongoclient.close();
-	return [0, 0];
+	return [0];
 }
 
 async function setinit(userID, initalprompt) {
@@ -555,7 +555,8 @@ async function checkForBlockedWordsGUILD(guild, uncheckedcontent) {
 // Prevent uncaught Exception stops
 process.on('uncaughtException', function (err) {
 	console.error(err);
-	console.log("uncaughtException...");
+	console.error("uncaughtException...");
+	console.info("Attempting to continue listening for requests!")
   });
 
 dotenv.config();
@@ -698,9 +699,8 @@ client.once(Events.ClientReady, async () => {
 		await rest.put(Routes.applicationCommands(client.user.id), {
 			body: commands
 		});
-		log(LogLevel.Info, commands)
-
 		log(LogLevel.Info, "Successfully reloaded application slash (/) commands.");
+		log(LogLevel.Info, `Started (Waiting for request)`);
 	}
 	});
 
@@ -789,6 +789,145 @@ async function replySplitMessage(replyMessage, content) {
 	return replyMessages;
 }
 
+async function Embedding(input) {
+
+
+	var responseEmbed = (await makeRequest("/api/embed", "post", {
+		model: embedmodel,
+		input
+	}));
+
+	responseEmbed = await responseEmbed.split("\n").filter(e => !!e).map(e => {
+		return JSON.parse(e);
+	});
+
+	let responseEmbedVector = JSON.parse("[" + await responseEmbed.map(e => e.embeddings).filter(e => e != null).join("").trim() + "]");
+
+	return responseEmbedVector
+
+}
+
+async function responseLLM(LLM, userInput, user, channel, guild, system, contextboolean) {
+	// context if the message is not a reply
+	if(contextboolean != false){
+	var context = await readcontext(channel.id)
+	} else {
+	var context = [0]
+	}
+
+	// Adding additional info about conversation! (A little much i know i need to make this look better!)
+	var currentutctime = useutctime ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
+	var currentsystime = usesystime ? `Current System time: ${new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })}\n` : ``;
+	if(user != false){
+	var UserUsername = useUsername ? `USERNAME OF DISCORD USER: ${user.username}\n` : ``;
+	var UserID = useUserID ? `DISCORD USER-ID: ${user.id}\nDISCORD USER MENTION IS: <@${user.id}>` : ``;
+	} else {
+	var UserUsername = ``;
+	var UserID = ``;
+	}
+	var ChannelID = useChannelID ? `DISCORD CHANNEL ID: ${channel.id}\n` : ``;
+	if (guild == null) {
+	if(user != false){
+	var ChannelName = useChannelname ? `Direct-message with the user ${user.tag}\n` : ``;
+	} else {
+	var ChannelName = useChannelname ``;
+	}
+	var ServerName = ``;
+	}
+	else {
+	if (ChannelID != ``) ChannelID += `DISCORD CHANNEL MENTION: <#${channel.id}>\n`;
+	var ChannelName = useChannelname ? `DISCORD SERVER CHANNEL NAME: #${channel.name}\n` : ``;
+	var ServerName = useServername ? `DISCORD SERVER NAME: ${guild.name}\n` : ``;
+	}
+	if(user != false){
+	var Nickname = useNickname ? `DISCORD NICKNAME OF USER: ${user.displayName}\n` : ``;
+	var initialPrompt = `${await readinitprompt(user.id)}\n\n`
+	log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
+	} else {
+	var Nickname = ``
+	var initialPrompt = ``
+	}
+	log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`);
+	userInput = `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\n\nMessage\n${userInput}`;
+	var usersystemMessage = await readsystemmsg(channel.id)
+	var systemMessagetomodel = `${usersystemMessage}`
+	log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
+	if(system == false) { system = systemMessagetomodel }
+
+
+	var response = (await makeRequest("/api/generate", "post", {
+		model: LLM,
+		prompt: userInput,
+		system: systemMessagetomodel,
+		keep_alive: 0,
+		context
+	}));
+
+	if (typeof response != "string") {
+		log(LogLevel.Debug, response);
+		throw new TypeError("response is not a string, this may be an error with ollama");
+	}
+
+	response = response.split("\n").filter(e => !!e).map(e => {
+		return JSON.parse(e);
+	});
+
+	context = response.filter(e => e.done && e.context)[0].context;
+
+	if(contextboolean != false){
+	await setcontext(channel.id, context)
+	}
+
+	let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
+		if (responseText.length == 0) {
+			responseText = "(No response)";
+		}
+
+
+	return responseText
+	
+}
+
+async function responseImageLLM(LLM, userInput, image, user, channel, guild, system) {
+	// Adding additional info about conversation! (A little much i know i need to make this look better!)
+	var currentutctime = useutctime ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
+	var currentsystime = usesystime ? `Current System time: ${new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })}\n` : ``;
+	log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}\nMessage: ${userInput}`);
+	userInput = `${currentsystime}\n\nMessage\n${userInput}`;
+	var usersystemMessage = await readsystemmsg(channel.id)
+	var systemMessagetomodel = `${usersystemMessage}`
+	log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
+	if(system == false) { system = systemMessagetomodel }
+
+
+	var response = (await makeRequest("/api/generate", "post", {
+		model: LLM,
+		prompt: userInput,
+		system: systemMessagetomodel,
+		keep_alive: 0,
+		images: image
+	}));
+
+	if (typeof response != "string") {
+		log(LogLevel.Debug, response);
+		throw new TypeError("response is not a string, this may be an error with ollama");
+	}
+
+	response = response.split("\n").filter(e => !!e).map(e => {
+		return JSON.parse(e);
+	});
+
+	let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
+		if (responseText.length == 0) {
+			responseText = "(No response)";
+		}
+
+
+	return responseText
+	
+}
+
+
 client.on(Events.MessageCreate, async message => {
 	let typing = false;
 	try {
@@ -809,22 +948,19 @@ client.on(Events.MessageCreate, async message => {
 			return;
 		}
 
-		let context = null;
+		let userInput = message.content
+		.replace(new RegExp("^s*" + myMention.source, ""), "").trim();
+
 		if (message.type == MessageType.Reply) {
 			const reply = await message.fetchReference();
 			if (!reply) return;
 			if (reply.author.id != client.user.id) return;
-			if (messages[channelID] == null) return;
-			if ((context = messages[channelID][reply.id]) == null) return;
+			userInput = `${userInput} - This message from user is in reply to your previous mesasge "${reply}"`
 		} else if (message.type != MessageType.Default) {
 			return;
 		}
 
-		let userInput = message.content
-			.replace(new RegExp("^s*" + myMention.source, ""), "").trim();
-
 		if (message.type == MessageType.Default && (requiresMention && message.guild && !message.content.match(myMention))) return;
-
 
 		if (await checkBlockeduser(message.author.id)) {
 			try {
@@ -906,12 +1042,6 @@ client.on(Events.MessageCreate, async message => {
 			}
 		}
 
-
-		// create conversation
-		if (messages[channelID] == null) {
-			messages[channelID] = { amount: 0, last: null };
-		}
-
 		if(message.guild){
 		if (await checkForBlockedWordsGUILD(message.guild, userInput) && await checkForBlockedWordsUSER(message.author, userInput)){
 			return;
@@ -938,90 +1068,18 @@ client.on(Events.MessageCreate, async message => {
 			}
 		}, 7000);
 
-		let response;
-		try {
-			// context if the message is not a reply
-			context = await readcontext(message.channel.id)
-
-			// Adding additional info about conversation! (A little much i know i need to make this look better!)
-			var currentutctime = useutctime ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
-            var currentsystime = usesystime ? `Current System time: ${new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })}\n` : ``;
-            var UserUsername = useUsername ? `USERNAME OF DISCORD USER: ${message.author.username}\n` : ``;
-            var UserID = useUserID ? `DISCORD USER-ID: ${message.author.id}\nDISCORD USER MENTION IS: <@${message.author.id}>` : ``;
-            var ChannelID = useChannelID ? `DISCORD CHANNEL ID: ${message.channel.id}\n` : ``;
-            if (message.guild == null) {
-                var ChannelName = useChannelname ? `Direct-message with the user ${message.author.tag}\n` : ``;
-                var ServerName = ``;
-            }
-            else {
-                if (ChannelID != ``) ChannelID += `DISCORD CHANNEL MENTION: <#${message.channel.id}>\n`;
-                var ChannelName = useChannelname ? `DISCORD SERVER CHANNEL NAME: #${message.channel.name}\n` : ``;
-                var ServerName = useServername ? `DISCORD SERVER NAME: ${message.guild}\n` : ``;
-            }
-            var Nickname = useNickname ? `DISCORD NICKNAME OF USER: ${message.author.displayName}\n` : ``;
-			var initialPrompt = await readinitprompt(message.author.id)
-			log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
-			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`);
-			userInput = `Init-Prompt: ${initialPrompt}\n\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`; 
-			var usersystemMessage = await readsystemmsg(message.channel.id)
-			var systemMessagetomodel = `${usersystemMessage}`
-			log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
-
-
-			// make request to model
-			response = (await makeRequest("/api/generate", "post", {
-				model: model,
-				prompt: userInput,
-				system: systemMessagetomodel,
-				keep_alive: 0,
-				context
-			}));
-
-			if (typeof response != "string") {
-				log(LogLevel.Debug, response);
-				throw new TypeError("response is not a string, this may be an error with ollama");
-			}
-
-			response = response.split("\n").filter(e => !!e).map(e => {
-				return JSON.parse(e);
-			});
-		} catch (error) {
-			if (typingInterval != null) {
-				clearInterval(typingInterval);
-			}
-			typingInterval = null;
-			throw error;
-		}
+		let responseText = await responseLLM(model, userInput, message.author, message.channel, message.guild, false, true)
 
 		if (typingInterval != null) {
 			clearInterval(typingInterval);
 		}
 		typingInterval = null;
 
-		let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-		if (responseText.length == 0) {
-			responseText = "(No response)";
-		}
-
 		log(LogLevel.Debug, `Response: ${responseText}`);
 
-		const prefix = showStartOfConversation && messages[channelID].amount == 0 ?
-			"> This is the beginning of the conversation, type `.help` for help.\n\n" : "";
-
-		// reply (will automatically stop typing)
-		const replyMessageIDs = (await replySplitMessage(message, `${prefix}${responseText}`)).map(msg => msg.id);
-
-		// add response to conversation
-		context = response.filter(e => e.done && e.context)[0].context;
-		for (let i = 0; i < replyMessageIDs.length; ++i) {
-			messages[channelID][replyMessageIDs[i]] = context;
-		}
-		messages[channelID].last = context;
-		++messages[channelID].amount;
 		
-		setcontext(message.channel.id, context)
-
-		context == null
+		// reply (will automatically stop typing)
+		await replySplitMessage(message, `${responseText}`)
 
 	} catch (error) {
 		if (typing) {
@@ -1059,44 +1117,15 @@ if (welcomeuser) {
 			var channel_system = `${channel_system}`
 
 			var prompt = `Write a welcome message to the discord user ${member.displayName}, they just joined the server ${member.guild.name}!`; 
-			const model = process.env.MODEL; 
 			var system = `You write welcoming messages for the discord server ${member.guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`; 
-			var utctime = new Date().toUTCString();
-			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
-			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
-			if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
-			if (useChannelID) { var ChannelID = `DISCORD CHANNEL ID: ${dmchannel.id}\n`; if (dmchannel.guild != null) { var ChannelID = + `DISCORD CHANNEL MENTION: <#${dmchannel.id}>\n` } } else { var ChannelID = `` }
-			if (useChannelname) { var ChannelName = `DISCORD SERVER CHANNEL NAME: #${dmchannel.name}\n`; } else { var ChannelName = `` }
-			if (useChannelname) { if (dmchannel.guild == null) { var ChannelName = `Direct-message with the user ${member.displayName}\n`; } }
-			if (useUserID) { var UserID = `DISCORD USER-ID: ${member.id}\nDISCORD USER MENTION IS: <@${member.id}>\n`; } else { var UserID = `` }
-			if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${member.displayName}\n` } else { var Nickname = `` };
-			var prompt = `${init_prompt}${currentsystime}${ChannelName}${ChannelID}${currentutctime}${Nickname}${UserID}${prompt}`
+
 			log(LogLevel.Debug, prompt)
 			log(LogLevel.Debug, `SYSTEM MESSAGE\n${system}`)
 
-				var guildsys = await readwelcomesystemmsg(member.guild.id)
-				system = `You write welcoming messages for the discord server ${member.guild.name}.\n${guildsys}`
+			var guildsys = await readwelcomesystemmsg(member.guild.id)
+			system = `You write welcoming messages for the discord server ${member.guild.name}.\n${guildsys}`
 
-			var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
-			response = (await makeRequest("/api/generate", "post", {
-				model,
-				prompt,
-				system
-			}));
-
-			if (typeof response != "string") {
-				log(LogLevel.Debug, response);
-				throw new TypeError("response is not a string, this may be an error with ollama");
-			}
-
-			response = response.split("\n").filter(e => !!e).map(e => {
-				return JSON.parse(e);
-			});
-
-			let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-			if (responseText.length == 0) {
-				responseText = "(No response)";
-			}
+			let responseText = await responseLLM(model, prompt, member, dmchannel, member.guild, system, true)
 
 			member.send(`-# This message was generated by an LLM\n-# You may learn how to use this bot in this dm by writing /help\n-# You may also dm this bot and it will respond\n${responseText}`)
 		} catch (error) {
@@ -1157,51 +1186,10 @@ if (welcomeuser) {
 				}
 	
 			var prompt = `Write a message to introduce yourself in the new discord server you were invited to and joined ${guild.name}`;
-			const model = process.env.MODEL;
 			const system = `You write a Message to introduce yourself in ${guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`;
-			var utctime = new Date().toUTCString();
-			var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })
-			if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }
-			if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }
-			var prompt = `\n${currentsystime}${currentutctime}${prompt}`
 			log(LogLevel.Debug, prompt)
 	
-			var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
-			response = (await makeRequest("/api/generate", "post", {
-				model,
-				prompt,
-				system,
-				context
-			}));
-	
-			if (typeof response != "string") {
-				log(LogLevel.Debug, response);
-				throw new TypeError("response is not a string, this may be an error with ollama");
-			}
-	
-			response = response.split("\n").filter(e => !!e).map(e => {
-				return JSON.parse(e);
-			});
-	
-			let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-			if (responseText.length == 0) {
-				responseText = "(No response)";
-			}
-	
-			try {
-				await addChannel(channelG.id)
-			} catch (error) {
-				logError(error);
-			}
-	
-			context = response.filter(e => e.done && e.context)[0].context;
-	
-			try {
-			await setcontext(channelG.id, context) }
-			catch (error) {
-				logError(error)
-			}
-	
+			let responseText = await responseLLM(model, prompt, false, channelG, guild, system, true)
 	
 			try {
 				await channelG.send(`# Hello my name is ${client.user.username}, type \`/help\` to view my commands.\n## In order to enable my mention and reply features in a channel please use \`/addchannel\` (I have added myself to this channel) then use <@${client.user.id}> to mention me with your message.\n### If you have any issues, complaints, or suggestions please contact <@635136583078772754> or you can go to [website for alice](<https://ethmangameon.github.io/alice-app/index.html>) we also have an [support server](<https://discord.gg/RwZd3T8vde>) and lastly we have a [GitHub repo for the bot.](<https://github.com/Ethmangameon/alice-bot>)\n ### Please remember my commands work in any channel if you wish to change this change interaction permissions, also note you can add me to your profile if and when you want to use my commands anywhere on discord!\n-# This response is generated by AI\n${responseText}`
@@ -1666,29 +1654,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 				const model = process.env.IMAGEMODEL;
 				const system = options.getString("system") || channel_system;
-				var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
+				await interaction.deferReply()
 
-				await interaction.deferReply();
-				response = (await makeRequest("/api/generate", "post", {
-					model,
-					prompt,
-					system,
-					images: imagesb64
-				}));
-
-				if (typeof response != "string") {
-					log(LogLevel.Debug, response);
-					throw new TypeError("response is not a string, this may be an error with ollama");
-				}
-
-				response = response.split("\n").filter(e => !!e).map(e => {
-					return JSON.parse(e);
-				});
-			
-			let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-			if (responseText.length == 0) {
-				responseText = "(No response)";
-				}; log(LogLevel.Debug, `Response: ${responseText}`);
+				let responseText = await responseImageLLM(model, prompt, imagesb64, interaction.user, interaction.channel, interaction.guild, system)
+	
+				log(LogLevel.Debug, `Response: ${responseText}`);
 
 				var responseEmbed = {
 					color: embedColor,
@@ -1816,52 +1786,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					})
 					.trim();
 
-				var utctime = new Date().toUTCString();
-				var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" }); 
-				try { if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }; } catch { var currentutctime = `` };
-				try { if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }; } catch { var currentsystime = `` };
-				try { if (useUsername) { var UserUsername = `USERNAME OF DISCORD USER: ${interaction.user.username}\n`; } else { var UserUsername = `` }; } catch { var UserUsername = `` };
-				try { if (useUserID) { var UserID = `DISCORD USER-ID: ${interaction.user.id}\nDISCORD USER MENTION IS: <@${interaction.user.id}>\n`; } else { var UserID = `` }; } catch { var UserID = `` };
-				try { if (useChannelID) { var ChannelID = `DISCORD CHANNEL ID: ${interaction.channel.id}\n`; } else { var ChannelID = `` }; } catch { var ChannelID = `` };
-				try { if (useChannelname) { var ChannelName = `DISCORD SERVER CHANNEL NAME: #${interaction.channel.name}\n`; } else { var ChannelName = `` }; } catch { var ChannelName = `` };
-				try { if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${interaction.user.displayName}\n` } else { var Nickname = `` }; } catch { var Nickname = `` };
-
-			var prompt = `${init_prompt}${currentutctime}${currentsystime}${ChannelID}${ChannelName}${UserUsername}${UserID}${Nickname}\nMessage from user: ${prompt}` 
-			log(LogLevel.Debug, prompt)
-
-				const model = process.env.MODEL;
 				const system = options.getString("system") || channel_system;
-				var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
 
-				response = (await makeRequest("/api/generate", "post", {
-					model,
-					prompt,
-					system,
-					context
-				}));
+				let responseText = await responseLLM(model, prompt, interaction.user, interaction.channel, interaction.guild, system, true)
 
-				if (typeof response != "string") {
-					log(LogLevel.Debug, response);
-					throw new TypeError("response is not a string, this may be an error with ollama");
-				}
-
-				response = response.split("\n").filter(e => !!e).map(e => {
-					return JSON.parse(e);
-				});
-
-				let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-				if (responseText.length == 0) {
-					responseText = "(No response)";
-				}
 				log(LogLevel.Debug, `Response: ${responseText}`);
-
-				context = response.filter(e => e.done && e.context)[0].context;
-
-				try {
-					await setcontext(interaction.channel.id, context)}
-				catch (error) {
-					logError(`interaction.channel.id couldnt be found so context was not cached (However this is not an fatal error, no need to panic!)`)
-				}
 
 				var responseEmbed = {
 					color: embedColor,
@@ -1916,152 +1845,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			}
 			log(LogLevel.Debug, `Finished responding to /respond`)
 			break;
-			case "reply":
-				log(LogLevel.Debug, `Attempting to run (Context-intergration) [reply]`)
-				try {
-					await interaction.deferReply()
-					
-							var channel_system = await readsystemmsg(interaction.channel.id)
-						
-					var channel_system = `${channel_system}`
-					var init_prompt = await readinitprompt(interaction.user.id)
-					var init_prompt = `${init_prompt}\n\n`
-	
-					try {
-						// context if the message is not a reply
-	
-						if (context == null) {
-							
-						context = await readcontext(interaction.channel.id);
-						};
-					} catch { var context = [0, 0] }
-					var prompt = `${interaction.targetMessage}`
-					const botRole = interaction.guild?.members?.me?.roles?.botRole;
-					const myMention = new RegExp(`<@((!?${client.user.id}${botRole ? `)|(&${botRole.id}` : ""}))>`, "g");
-	
-					prompt = prompt
-						.replace(myMention, "")
-						.replace(/<#([0-9]+)>/g, (_, id) => {
-							if (interaction.guild) {
-								const chn = interaction.guild.channels.cache.get(id);
-								if (chn) return `#${chn.name}`;
-							}
-							return "#unknown-channel";
-						})
-						.replace(/<@!?([0-9]+)>/g, (_, id) => {
-							if (id == inetraction.user.id) return inetraction.user.username;
-							if (interaction.guild) {
-								const mem = interaction.guild.members.cache.get(id);
-								if (mem) return `@${mem.user.username}`;
-							}
-							return "@unknown-user";
-						})
-						.replace(/<:([a-zA-Z0-9_]+):([0-9]+)>/g, (_, name) => {
-							return `emoji:${name}:`;
-						})
-						.trim();
-	
-					var utctime = new Date().toUTCString();
-					var time = new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" }); 
-					try { if (useutctime) { var currentutctime = `Current UTC time: ${utctime}\n` } else { var currentutctime = `` }; } catch { var currentutctime = `` };
-					try { if (usesystime) { var currentsystime = `Current System time: ${time}\n` } else { var currentsystime = `` }; } catch { var currentsystime = `` };
-					try { if (useUsername) { var UserUsername = `USERNAME OF DISCORD USER: ${interaction.user.username}\n`; } else { var UserUsername = `` }; } catch { var UserUsername = `` };
-					try { if (useUserID) { var UserID = `DISCORD USER-ID: ${interaction.user.id}\nDISCORD USER MENTION IS: <@${interaction.user.id}>\n`; } else { var UserID = `` }; } catch { var UserID = `` };
-					try { if (useChannelID) { var ChannelID = `DISCORD CHANNEL ID: ${interaction.channel.id}\n`; } else { var ChannelID = `` }; } catch { var ChannelID = `` };
-					try { if (useChannelname) { var ChannelName = `DISCORD SERVER CHANNEL NAME: #${interaction.channel.name}\n`; } else { var ChannelName = `` }; } catch { var ChannelName = `` };
-					try { if (useNickname) { var Nickname = `DISCORD NICKNAME OF USER: ${interaction.user.displayName}\n` } else { var Nickname = `` }; } catch { var Nickname = `` };
-	
-				var prompt = `${init_prompt}${currentutctime}${currentsystime}${ChannelID}${ChannelName}${UserUsername}${UserID}${Nickname}\nMessage from user: ${prompt}` 
-				log(LogLevel.Debug, prompt)
-	
-					const model = process.env.MODEL;
-					const system = channel_system;
-					var response = `THE APPLICATION EITHER NEVER RESPONDED OR THE CODE DIDNT DO ITS JOB AND WAIT`;
-	
-					response = (await makeRequest("/api/generate", "post", {
-						model,
-						prompt,
-						system,
-						context
-					}));
-
-					if (typeof response != "string") {
-						log(LogLevel.Debug, response);
-						throw new TypeError("response is not a string, this may be an error with ollama");
-					}
-	
-					response = response.split("\n").filter(e => !!e).map(e => {
-						return JSON.parse(e);
-					});
-	
-					let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-					if (responseText.length == 0) {
-						responseText = "(No response)";
-					}
-					log(LogLevel.Debug, `Response: ${responseText}`);
-	
-					context = response.filter(e => e.done && e.context)[0].context;
-	
-					try {
-					await setcontext(interaction.channel.id, context);
-					}
-					catch (error) {
-						logError(`interaction.channel.id couldnt be found so context was not cached (However this is not an fatal error, no need to panic!)`)
-					}
-	
-					var responseEmbed = {
-						color: embedColor,
-						title: 'Reply command results',
-						author: {
-							name: embedName,
-							url: embedLink,
-						},
-						description: 'Response from the LLM.',
-						thumbnail: {
-							url: embedThumb,
-						},
-						fields: [
-							{
-								name: 'The prompt',
-								value: `${interaction.targetMessage}`,
-							}
-						],
-						timestamp: new Date().toISOString(),
-						footer: {
-							text: `Generated by ${process.env.MODEL}`,
-							icon_url: embedIcon,
-						},
-					};
-				
-	
-					await interaction.editReply({
-						embeds: [responseEmbed],
-					}).then(() => {try{
-						interaction.followUp({
-							content: `${responseText}`
-						});
-				} catch (error) { logError(error)}
-					});
-	
-				} catch (error) {
-					logError(error);
-					try {
-						await interaction.editReply({
-							content: `Error, please check the console | OVERIDE: ${error}`
-						});
-					} catch {
-						try {
-							await interaction.deferReply();
-							await interaction.editReply({
-								content: `Error, please check the console | OVERIDE: ${error}`
-							});
-						} catch (error) {
-							logError(error);
-						}
-					}
-				}
-				log(LogLevel.Debug, `Finished responding to (Context-intergration) [reply]`)
-				break;
 		case "upscale":
 			log(LogLevel.Debug, `Attempting to run /upscale`)
 			try {
@@ -2346,30 +2129,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				for (const item of BLOCKED_PHRASES) {
 					if (options.getString("appendsysmsg").includes(item)) {
 	
-						console.log(`Freakout and crashout \n${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} \njust attempted to make an system message with the blocked phrase ${item}`)
-						try {
-							await interaction.deferReply();
-							await interaction.editReply({
-								content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a system message if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
-							})} catch {
-								await interaction.deferReply();
-								await interaction.editReply({
-									content: `You have been automatically blocked by stuff-and-things for using the blocked phrase \`${item}\` in a system message gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`	
-							})}
-	
-							if(interaction.guild){
-							addBlockedguild(interaction.guild.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`);
-							log(LogLevel.Debug, `Added to blocked guilds (${interaction.guild.name} - ${interaction.guild.id})`)
-							}
-							addBlockeduser(interaction.user.id, `(AUTO-BLOCK) - Blocked for using the blocked phrase ${item} in generation!`);
-							log(LogLevel.Debug, `Added to the blocked users (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id})`)
-							if(interaction.guild){
-							try {
-							interaction.guild.leave();
-							log(LogLevel.Debug, `Left the guild (${interaction.guild.name} - ${interaction.guild.id})`)
-							} catch (error) {
-									logError(error);
-							}
+						if(interaction.guild){
+							if (await checkForBlockedWordsGUILD(interaction.guild, options.getString("appendsysmsg")) && await checkForBlockedWordsUSER(interaction.user, options.getString("initprompt"))){
+								return;
+							}} else {
+								if (await checkForBlockedWordsUSER(interaction.user, options.getString("appendsysmsg"))){
+								return;
+								}
 							}
 							
 							//This is black magic but this works to prevent generation!!
@@ -3402,6 +3168,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			log(LogLevel.Debug, `Attempting to run /setwelcomesysmsg`)
 			try {
 				
+				if(interaction.guild){
+					if (await checkForBlockedWordsGUILD(interaction.guild, options.getString("sysmsg")) && await checkForBlockedWordsUSER(interaction.user, options.getString("sysmsg"))){
+						return;
+					}} else {
+						if (await checkForBlockedWordsUSER(interaction.user, options.getString("sysmsg"))){
+						return;
+						}
+					}
+
 				await setwelcomesystemmsg(interaction.guild.id, options.getString("sysmsg"))
 
 				var responseEmbed = {
