@@ -890,9 +890,46 @@ async function responseImageLLM(LLM, userInput, image, user, channel, guild, sys
 	// Adding additional info about conversation! (A little much i know i need to make this look better!)
 	var currentutctime = useutctime ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
 	var currentsystime = usesystime ? `Current System time: ${new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })}\n` : ``;
-	log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}\nMessage: ${userInput}`);
-	userInput = `${currentsystime}\n\nMessage\n${userInput}`;
-	var usersystemMessage = await readsystemmsg(channel.id)
+	if(user != false){
+	var UserUsername = useUsername ? `USERNAME OF DISCORD USER: ${user.username}\n` : ``;
+	var UserID = useUserID ? `DISCORD USER-ID: ${user.id}\nDISCORD USER MENTION IS: <@${user.id}>` : ``;
+	} else {
+	var UserUsername = ``;
+	var UserID = ``;
+	}
+	if (channel != false){
+	var ChannelID = useChannelID ? `DISCORD CHANNEL ID: ${channel.id}\n` : ``;
+	} else {
+	var ChannelID = ``;
+	}
+	if (guild == null) {
+	if(user != false){
+	var ChannelName = useChannelname ? `Direct-message with the user ${user.tag}\n` : ``;
+	} else {
+	var ChannelName = useChannelname ``;
+	}
+	var ServerName = ``;
+	}
+	else {
+	if (channel != false){
+	if (ChannelID != ``) ChannelID += `DISCORD CHANNEL MENTION: <#${channel.id}>\n`;
+	var ChannelName = useChannelname ? `DISCORD SERVER CHANNEL NAME: #${channel.name}\n` : ``;
+	} else {
+		var ChannelID = ``;
+		var ChannelName = ``;	
+	}
+	var ServerName = useServername ? `DISCORD SERVER NAME: ${guild.name}\n` : ``;
+	}
+	if(user != false){
+	var Nickname = useNickname ? `DISCORD NICKNAME OF USER: ${user.displayName}\n` : ``;
+	var initialPrompt = `${await readinitprompt(user.id)}\n\n`
+	log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
+	} else {
+	var Nickname = ``
+	var initialPrompt = ``
+	}
+	log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`);
+	userInput = `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\n\nMessage\n${userInput}`;	var usersystemMessage = await readsystemmsg(channel.id)
 	var systemMessagetomodel = `${usersystemMessage}`
 	log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
 	if(system == false) { system = systemMessagetomodel }
@@ -949,11 +986,14 @@ client.on(Events.MessageCreate, async message => {
 		let userInput = message.content
 		.replace(new RegExp("^s*" + myMention.source, ""), "").trim();
 
+		let userInputImageCheck = message.content
+		.replace(new RegExp("^s*" + myMention.source, ""), "").trim();
+
 		if (message.type == MessageType.Reply) {
 			const reply = await message.fetchReference();
 			if (!reply) return;
 			if (reply.author.id != client.user.id) return;
-			userInput = `${userInput} - This message from user is in reply to your previous mesasge "${reply}"`
+			userInput = `${userInput} - This message from user is in reply to one of your previous mesasges "${reply}"`
 		} else if (message.type != MessageType.Default) {
 			return;
 		}
@@ -1023,12 +1063,128 @@ client.on(Events.MessageCreate, async message => {
 
 		if (userInput.length == 0) return;
 
-		// Process text files if attached
+
+
+
+		var imagesb64 = false
+		// Process files if attached
+		if (message.attachments.size > 0) {
+			const imageAttachments = Array.from(message.attachments, ([, value]) => value).filter(att => att.contentType.startsWith("image"));
+			if (imageAttachments.length > 0) {
+				try {
+					await Promise.all(imageAttachments.map(async (att, i) => {
+						log(LogLevel.Debug, `making rq to ${att.url}`)
+						const response = await axios.get(att.url, {
+						responseType: "text",
+						responseEncoding: "base64",
+						});
+						imagesb64 = [response.data]
+					}));
+				} catch (error) {
+					log(LogLevel.Error, `Failed to download image files: ${error}`);
+					await message.reply({ content: "Failed to download image files" });
+					return; // Stop processing if file download fails
+				}
+			}
+		}
+
+	if(userInputImageCheck.startsWith("https://media.discordapp.net/attachments/")){
+			try {
+				log(LogLevel.Debug, `making rq to ${userInputImageCheck}`)
+				const response = await axios.get(userInputImageCheck, {
+				responseType: "text",
+				responseEncoding: "base64",
+					});
+				imagesb64 = [response.data]
+				} catch (error) {
+				log(LogLevel.Error, `Failed to download image files: ${error}`);
+				await message.reply({ content: "Failed to download image files" });
+				return; // Stop processing if file download fails
+				}
+		}
+
+		if(userInputImageCheck.endsWith(".gif")){
+			try {
+				log(LogLevel.Debug, `making rq to ${userInputImageCheck}`)
+				const response = await axios.get(userInputImageCheck, {
+				responseType: "text",
+				responseEncoding: "base64",
+					});
+				imagesb64 = [response.data]
+				} catch (error) {
+				log(LogLevel.Error, `Failed to download image files: ${error}`);
+				await message.reply({ content: "Failed to download image files" });
+				return; // Stop processing if file download fails
+				}
+			}
+
+		if(userInputImageCheck.endsWith(".png")){
+			try {
+				log(LogLevel.Debug, `making rq to ${userInputImageCheck}`)
+				const response = await axios.get(userInputImageCheck, {
+				responseType: "text",
+				responseEncoding: "base64",
+					});
+				imagesb64 = [response.data]
+				} catch (error) {
+				log(LogLevel.Error, `Failed to download image files: ${error}`);
+				await message.reply({ content: "Failed to download image files" });
+				return; // Stop processing if file download fails
+				}
+			}	
+
+		if(userInputImageCheck.endsWith(".jpg")){
+			try {
+				log(LogLevel.Debug, `making rq to ${userInputImageCheck}`)
+				const response = await axios.get(userInputImageCheck, {
+				responseType: "text",
+				responseEncoding: "base64",
+					});
+				imagesb64 = [response.data]
+				} catch (error) {
+				log(LogLevel.Error, `Failed to download image files: ${error}`);
+				await message.reply({ content: "Failed to download image files" });
+				return; // Stop processing if file download fails
+				}
+			}	
+
+		if(userInputImageCheck.endsWith(".webp")){
+			try {
+				log(LogLevel.Debug, `making rq to ${userInputImageCheck}`)
+				const response = await axios.get(userInputImageCheck, {
+				responseType: "text",
+				responseEncoding: "base64",
+					});
+				imagesb64 = [response.data]
+				} catch (error) {
+				log(LogLevel.Error, `Failed to download image files: ${error}`);
+				await message.reply({ content: "Failed to download image files" });
+				return; // Stop processing if file download fails
+				}
+			}	
+	
+			
+		if(userInput.startsWith("https://tenor.com/view/")){
+			try {
+				log(LogLevel.Debug, `making rq to ${userInput}`)
+				const response = await axios.get(userInput, {
+				responseType: "text",
+				responseEncoding: "base64",
+				});
+				imagesb64 = [response.data]
+			} catch (error) {
+				log(LogLevel.Error, `Failed to download image files: ${error}`);
+				await message.reply({ content: "Failed to download image files" });
+				return; // Stop processing if file download fails
+			}
+		}
+
 		if (message.attachments.size > 0) {
 			const textAttachments = Array.from(message.attachments, ([, value]) => value).filter(att => att.contentType.startsWith("text"));
 			if (textAttachments.length > 0) {
 				try {
 					await Promise.all(textAttachments.map(async (att, i) => {
+						log(LogLevel.Debug, `making rq to ${att.url}`)
 						const response = await axios.get(att.url);
 						userInput += `\n${i + 1}. File - ${att.name}:\n${response.data}`;
 					}));
@@ -1066,7 +1222,13 @@ client.on(Events.MessageCreate, async message => {
 			}
 		}, 7000);
 
-		let responseText = await responseLLM(model, userInput, message.author, message.channel, message.guild, false, true)
+		if(imagesb64 != false){
+		var responseText = await responseImageLLM(model, userInput, imagesb64, message.author, message.channel, message.guild)
+		log(LogLevel.Debug, `Using Image LLM`)
+		} else {
+		var responseText = await responseLLM(model, userInput, message.author, message.channel, message.guild, false, true)
+		log(LogLevel.Debug, `Using Text-Only LLM`)
+		}
 
 		if (typingInterval != null) {
 			clearInterval(typingInterval);
@@ -1637,7 +1799,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						return "#unknown-channel";
 					})
 					.replace(/<@!?([0-9]+)>/g, (_, id) => {
-						if (id == inetraction.user.id) return inetraction.user.username;
+						if (id == interaction.user.id) return interaction.user.username;
 						if (interaction.guild) {
 							const mem = interaction.guild.members.cache.get(id);
 							if (mem) return `@${mem.user.username}`;
@@ -1772,7 +1934,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						return "#unknown-channel";
 					})
 					.replace(/<@!?([0-9]+)>/g, (_, id) => {
-						if (id == inetraction.user.id) return inetraction.user.username;
+						if (id == interaction.user.id) return interaction.user.username;
 						if (interaction.guild) {
 							const mem = interaction.guild.members.cache.get(id);
 							if (mem) return `@${mem.user.username}`;
