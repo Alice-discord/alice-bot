@@ -863,7 +863,7 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 }
 
 async function responseLLM(LLM, userInput, user, channel, guild, system, contextboolean) {
-	await mongoclient.connect();
+
 	if(contextboolean != false){
 	var context = await readcontext(channel.id)
 	} else {var context = [0]}
@@ -901,8 +901,6 @@ async function responseLLM(LLM, userInput, user, channel, guild, system, context
 		if (responseText.length == 0) {
 			responseText = "(No response)";
 		}
-
-	await mongoclient.close();
 
 	return responseText
 	
@@ -969,6 +967,89 @@ async function DonwloadImage(message) {
 		}
 }
 
+async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
+	distilled_cfg_scale, sampler_name, steps, batch_count, batch_size, enhance_prompt,
+	 sdapiv1string, init_images, upscaling_resize, upscaler_1, upscaler_2, extras_upscaler_2_visibility) {
+   
+   try {
+   
+   async function images(responseFlux) {
+	   return images = responseFlux.images.map((image) =>
+		   Buffer.from(image, "base64")
+	   )}
+   
+   if(sdapiv1string == `extra-batch-images`){
+   const responseFlux = await makeFluxRequest(
+	   `/sdapi/v1/${sdapiv1string}`,
+	   "post",
+	   {
+		   show_extras_results: true,
+		   gfpgan_visibility: 0,
+		   codeformer_visibility: 0,
+		   codeformer_weight: 0,
+		   upscaling_crop: true,
+		   upscale_first: false,
+		   resize_mode: 0,
+		   upscaling_resize,
+		   upscaler_1,
+		   upscaler_2,
+		   extras_upscaler_2_visibility,
+		   imageList: init_images,
+		   send_images: true,
+		   save_images: false,
+	   });return await images(responseFlux)}
+   if(sdapiv1string == `img2img`){
+   const responseFlux = await makeFluxRequest(
+		   `/sdapi/v1/${sdapiv1string}`,
+		   "post",
+		   {
+			   prompt,
+			   seed,
+			   init_images,
+			   denoising_strength,
+			   width,
+			   height,
+			   cfg_scale,
+			   distilled_cfg_scale,
+			   sampler_name,
+			   steps,
+			   num_inference_steps: steps,
+			   batch_count,
+			   batch_size,
+			   enhance_prompt,
+			   send_images: true,
+			   save_images: false,
+		   });return await images(responseFlux)}
+   if(sdapiv1string == `txt2img`){
+   const responseFlux = await makeFluxRequest(
+		   `/sdapi/v1/${sdapiv1string}`,
+		   "post",
+		   {
+			   prompt,
+			   seed,
+			   denoising_strength,
+			   width,
+			   height,
+			   cfg_scale,
+			   distilled_cfg_scale,
+			   sampler_name,
+			   steps,
+			   num_inference_steps: steps,
+			   batch_count,
+			   batch_size,
+			   enhance_prompt,
+			   send_images: true,
+			   save_images: false,
+		   });return await images(responseFlux)}
+	   
+	 } catch (error) {
+	   log(LogLevel.Error, error)
+	   const errorimage = await axios.get(`https://wallpapers.com/images/hd/error-placeholder-image-2e1q6z01rfep95v0.jpg`, {
+		   responseType: "text",
+		   responseEncoding: "base64",
+		   });
+	   return errorimage
+	 }}
 
 client.on(Events.MessageCreate, async message => {
 	let typing = false;
@@ -1402,30 +1483,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				const denoising_strength = options.getNumber("denoising_strength") || 0.75;
 
 				await interaction.deferReply();
-				const fluxResponse = await makeFluxRequest(
-					"/sdapi/v1/txt2img",
-					"post",
-					{
-						prompt,
-						seed,
-						denoising_strength,
-						width,
-						height,
-						cfg_scale,
-						distilled_cfg_scale,
-						sampler_name,
-						steps,
-						num_inference_steps: steps,
-						batch_count,
-						batch_size,
-						enhance_prompt,        
-						send_images: true,
-						save_images: false,
-					}
-				);
-				const images = fluxResponse.images.map((image) =>
-					Buffer.from(image, "base64")
-				);
+				const images = await sdapi(prompt,seed,denoising_strength,width,height,cfg_scale,distilled_cfg_scale,sampler_name,steps,batch_count,batch_size,enhance_prompt,`txt2img`)
+			
 				var responseEmbed = {
 					color: embedColor,
 					title: 'Text to image results',
@@ -1559,29 +1618,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				const enhance_prompt = (options.getBoolean("enhance_prompt") && true) ? "yes" : "no"; 
 
 				await interaction.deferReply();
-				const fluxResponse = await makeFluxRequest(
-					"/sdapi/v1/img2img",
-					"post",
-					{
-						prompt,
-						init_images,
-						seed,
-						width,
-						height,
-						cfg_scale,
-						distilled_cfg_scale,
-						denoising_strength,
-						sampler_name,
-						steps,
-						num_inference_steps: steps,
-						batch_count,
-						batch_size,
-						enhance_prompt
-					}
-				);
-				const images = fluxResponse.images.map((image) =>
-					Buffer.from(image, "base64")
-				);
+				const images = await sdapi(prompt,seed,denoising_strength,width,height,cfg_scale,distilled_cfg_scale,sampler_name,steps,batch_count,batch_size,enhance_prompt,`img2img`,init_images)
 
 				var responseEmbed = {
 					color: embedColor,
@@ -1981,13 +2018,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					break; // Stop processing if file download fails
 				}
 
-				const show_extras_results = true;
-				const gfpgan_visibility = 0;
-				const codeformer_visibility = 0;
-				const codeformer_weight = 0;
-				const upscaling_crop = true;
-				const upscale_first = false;
-				const resize_mode = 0;
 				const init_images = b64image;     
 				const upscaling_resize = options.getNumber("multiplier"); 
 				const upscaler_1 = options.getString("upscaler_1") || "R-ESRGAN 4x+";    
@@ -1995,28 +2025,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				const extras_upscaler_2_visibility = options.getNumber("upscaler_2_vis") || 1; 
 
 				await interaction.deferReply();
-				const fluxResponse = await makeFluxRequest(
-					"/sdapi/v1/extra-batch-images",
-					"post",
-					{
-						show_extras_results,
-						gfpgan_visibility,
-						codeformer_visibility,
-						codeformer_weight,
-						upscaling_crop,
-						upscale_first,
-						resize_mode,
-						upscaling_resize,
-						upscaler_1,
-						upscaler_2,
-						extras_upscaler_2_visibility,
-						imageList: init_images
-
-					}
-				);
-				const images = fluxResponse.images.map((image) =>
-					Buffer.from(image, "base64")
-				);
+				const images = await sdapi(0,0,0,0,0,0,0,0,0,0,0,0,`extra-batch-images`,init_images,upscaling_resize,upscaler_1,upscaler_2,extras_upscaler_2_visibility)
 
 				var responseEmbed = {
 					color: embedColor,
