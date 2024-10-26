@@ -851,12 +851,21 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 		var Nickname = ``
 		var initialPrompt = ``
 		}
+
+		if(!user && !channel && !guild) {
+			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}\nMessage: ${userInput}`)
+			return `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}\n\nMessage\n${userInput}`
+		}
+
 		log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage: ${userInput}`)
 		return userInput = `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\n\nMessage\n${userInput}`;
 	
 }
 
 async function responseLLM(LLM, userInput, user, channel, guild, system, contextboolean) {
+	if(contextboolean != false){
+	var context = await readcontext(channel.id)
+	} else {var context = [0]}
 	userInput = await LLMUserInputScopeFetch(userInput, user, channel, guild)
 	var usersystemMessage = await readsystemmsg(channel.id)
 	var systemMessagetomodel = `${usersystemMessage}`
@@ -892,7 +901,6 @@ async function responseLLM(LLM, userInput, user, channel, guild, system, context
 			responseText = "(No response)";
 		}
 
-
 	return responseText
 	
 }
@@ -903,7 +911,7 @@ async function responseImageLLM(LLM, userInput, image, user, channel, guild, sys
 	var usersystemMessage = await readsystemmsg(channel.id)
 	var systemMessagetomodel = `${usersystemMessage}`
 	log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
-	if(system == false) { system = systemMessagetomodel }
+	if(system != false) { systemMessagetomodel += system}
 
 	var response = (await makeRequest("/api/generate", "post", {
 		model: LLM,
@@ -934,7 +942,7 @@ async function responseImageLLM(LLM, userInput, image, user, channel, guild, sys
 
 async function DonwloadImage(message) {
 	try {
-		let words = userInputImageCheck.split(/\s+/); // Using a regex to split by whitespace
+		let words = message.split(/\s+/); // Using a regex to split by whitespace
 		let url = null; // Initialize url to null
 
 		for (let word of words) {
@@ -954,8 +962,7 @@ async function DonwloadImage(message) {
 		return [response.data]
 		} catch (error) {
 		log(LogLevel.Error, `Failed to download image files: ${error}`);
-		await message.reply({ content: "Failed to download image files" });
-		return; // Stop processing if file download fails
+		return `fail`; // Stop processing if file download fails
 		}
 }
 
@@ -1100,28 +1107,46 @@ client.on(Events.MessageCreate, async message => {
 		}
 
 		if(userInputImageCheck.includes("https://media.discordapp.net/attachments/")){
-		imagesb64 = DonwloadImage(userInputImageCheck)
+		imagesb64 = await DonwloadImage(userInputImageCheck)
+		if(imagesb64 == `fail`){
+		log(LogLevel.Error, `Failed to download image files`);
+		await message.reply({ content: "Failed to download image files" });}
 		}
 
 		if(userInputImageCheck.includes(".gif")){
-		imagesb64 = DonwloadImage(userInputImageCheck)
+		imagesb64 = await DonwloadImage(userInputImageCheck)
+		if(imagesb64 == `fail`){
+		log(LogLevel.Error, `Failed to download image files`);
+		await message.reply({ content: "Failed to download image files" });}
 		}
 
 		if(userInputImageCheck.includes(".png")){
-		imagesb64 = DonwloadImage(userInputImageCheck)
+		imagesb64 = await DonwloadImage(userInputImageCheck)
+		if(imagesb64 == `fail`){
+		log(LogLevel.Error, `Failed to download image files`);
+		await message.reply({ content: "Failed to download image files" });}
 		}	
 
 		if(userInputImageCheck.includes(".jpg")){
-		imagesb64 = DonwloadImage(userInputImageCheck)
+		imagesb64 = await DonwloadImage(userInputImageCheck)
+		if(imagesb64 == `fail`){
+		log(LogLevel.Error, `Failed to download image files`);
+		await message.reply({ content: "Failed to download image files" });}
 		}	
 
 		if(userInputImageCheck.includes(".webp")){
-		imagesb64 = DonwloadImage(userInputImageCheck)
+		imagesb64 = await DonwloadImage(userInputImageCheck)
+		if(imagesb64 == `fail`){
+		log(LogLevel.Error, `Failed to download image files`);
+		await message.reply({ content: "Failed to download image files" });}
 		}	
 	
 			
 		if(userInput.includes("https://tenor.com/view/")){
-		imagesb64 = DonwloadImage(userInputImageCheck)
+		imagesb64 = await DonwloadImage(userInputImageCheck)
+		if(imagesb64 == `fail`){
+		log(LogLevel.Error, `Failed to download image files`);
+		await message.reply({ content: "Failed to download image files" });}
 		}
 
 
@@ -1152,7 +1177,7 @@ client.on(Events.MessageCreate, async message => {
 		}, 7000);
 
 		if(imagesb64 != false){
-		var responseText = await responseImageLLM(imagemodel, userInput, imagesb64, false, false, false, system)
+		var responseText = await responseImageLLM(imagemodel, userInput, imagesb64, message.author, message.channel, message.guild, `Describe the image provided! `)
 		log(LogLevel.Debug, `Using Image LLM`)
 		} else {
 		var responseText = await responseLLM(model, userInput, message.author, message.channel, message.guild, false, true)
