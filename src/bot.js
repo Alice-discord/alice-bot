@@ -863,6 +863,7 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 }
 
 async function responseLLM(LLM, userInput, user, channel, guild, system, contextboolean) {
+	await mongoclient.connect();
 	if(contextboolean != false){
 	var context = await readcontext(channel.id)
 	} else {var context = [0]}
@@ -900,6 +901,8 @@ async function responseLLM(LLM, userInput, user, channel, guild, system, context
 		if (responseText.length == 0) {
 			responseText = "(No response)";
 		}
+
+	await mongoclient.close();
 
 	return responseText
 	
@@ -1106,13 +1109,6 @@ client.on(Events.MessageCreate, async message => {
 			}
 		}
 
-		if(userInputImageCheck.includes("https://media.discordapp.net/attachments/")){
-		imagesb64 = await DonwloadImage(userInputImageCheck)
-		if(imagesb64 == `fail`){
-		log(LogLevel.Error, `Failed to download image files`);
-		await message.reply({ content: "Failed to download image files" });}
-		}
-
 		if(userInputImageCheck.includes(".gif")){
 		imagesb64 = await DonwloadImage(userInputImageCheck)
 		if(imagesb64 == `fail`){
@@ -1176,7 +1172,7 @@ client.on(Events.MessageCreate, async message => {
 			}
 		}, 7000);
 
-		if(imagesb64 != false){
+		if(imagesb64 != false && imagesb64 != `fail`){
 		var responseText = await responseImageLLM(imagemodel, userInput, imagesb64, message.author, message.channel, message.guild, `Describe the image provided! `)
 		log(LogLevel.Debug, `Using Image LLM`)
 		} else {
