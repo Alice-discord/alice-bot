@@ -19,6 +19,7 @@ import { Logger, LogLevel } from "meklog";
 import dotenv from "dotenv";
 import axios from "axios";
 import commands from "./commands/commands.js";
+import { error } from "console";
 
 // Enviorment variables
 const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
@@ -864,7 +865,7 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 
 async function responseLLM(userInput, user, channel, guild, system, contextboolean, image) {
 
-	if(contextboolean != false){
+	if(contextboolean){
 	var context = await readcontext(channel.id)
 	} else {var context = [0]}
 	userInput = await LLMUserInputScopeFetch(userInput, user, channel, guild)
@@ -892,6 +893,8 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
 		}));
 	}
 
+	log(LogLevel.Debug, typeof await response, await response)
+
 	if (typeof response != "string") {
 		log(LogLevel.Debug, response);
 		throw new TypeError("response is not a string, this may be an error with ollama");
@@ -901,11 +904,6 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
 		return JSON.parse(e);
 	});
 
-	if(contextboolean != false){
-		context = response.filter(e => e.done && e.context)[0].context;
-		await setcontext(channel.id, context)
-	}
-
 	let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
 		if (responseText.length == 0) {
 			responseText = "(No response)";
@@ -914,6 +912,11 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
 	let responseError = response.map(e => e.error).filter(e => e != null)
 	if (responseError.length != 0) {
 		responseText = `${responseError}`;
+	}
+
+	if(contextboolean){
+		try{context = response.filter(e => e.done && e.context)[0].context;
+		await setcontext(channel.id, context)}catch(error){logError(error)}
 	}
 
 	return responseText
@@ -1233,7 +1236,9 @@ client.on(Events.MessageCreate, async message => {
 		}, 7000);
 
 		if(imagesb64 != false && imagesb64 != `fail`){
-		var responseText = await responseLLM(userInput, message.author, message.channel, message.guild, true, false, imagesb64)
+		if(getBoolean(process.env.Allow_Cross_context)){
+		var responseText = await responseLLM(userInput, message.author, message.channel, message.guild, true, true, imagesb64)}else{
+		var responseText = await responseLLM(userInput, message.author, message.channel, message.guild, true, false, imagesb64)}
 		log(LogLevel.Debug, `Using Image LLM`)
 		} else {
 		var responseText = await responseLLM(userInput, message.author, message.channel, message.guild, true, true)
@@ -1781,7 +1786,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				const system = options.getString("system") || channel_system;
 				await interaction.deferReply()
 
-				let responseText = await responseImageLLM(prompt, imagesb64, interaction.user, interaction.channel, interaction.guild, system, true, false, imagesb64 )
+				if(getBoolean(process.env.Allow_Cross_context)){
+					var responseText = await responseLLM(prompt, imagesb64, interaction.user, interaction.channel, interaction.guild, system, true, imagesb64)}else{
+					var responseText = await responseLLM(prompt, imagesb64, interaction.user, interaction.channel, interaction.guild, system, false, imagesb64)}
 	
 				log(LogLevel.Debug, `Response: ${responseText}`);
 
