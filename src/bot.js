@@ -35,7 +35,7 @@ const useChannelname = getBoolean(process.env.USECHANNELNAME);
 const requiresMention = getBoolean(process.env.REQUIRES_MENTION);
 const useNickname = getBoolean(process.env.USENICKNAME);
 var model = process.env.MODEL;
-var imagemodel = process.env.MODEL;
+var imagemodel = process.env.IMAGEMODEL;
 var embedmodel = process.env.EMBEDDINGMODEL;
 var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES.split(",");
 
@@ -862,7 +862,7 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 	
 }
 
-async function responseLLM(LLM, userInput, user, channel, guild, system, contextboolean) {
+async function responseLLM(userInput, user, channel, guild, system, contextboolean, image) {
 
 	if(contextboolean != false){
 	var context = await readcontext(channel.id)
@@ -870,17 +870,27 @@ async function responseLLM(LLM, userInput, user, channel, guild, system, context
 	userInput = await LLMUserInputScopeFetch(userInput, user, channel, guild)
 	var usersystemMessage = await readsystemmsg(channel.id)
 	var systemMessagetomodel = `${usersystemMessage}`
-	log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
-	if(system == false) { system = systemMessagetomodel }
+	if(system != true) { systemMessagetomodel = system }
+	log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`);
 
-
-	var response = (await makeRequest("/api/generate", "post", {
-		model: LLM,
-		prompt: userInput,
-		system: systemMessagetomodel,
-		keep_alive: 0,
-		context
-	}));
+	if (!image){
+		var response = (await makeRequest("/api/generate", "post", {
+			model: model,
+			prompt: userInput,
+			system: systemMessagetomodel,
+			keep_alive: 0,
+			context
+		}));
+	}else{
+		var response = (await makeRequest("/api/generate", "post", {
+			model: imagemodel,
+			prompt: userInput,
+			system: systemMessagetomodel,
+			keep_alive: 0,
+			images: image,
+			context
+		}));
+	}
 
 	if (typeof response != "string") {
 		log(LogLevel.Debug, response);
@@ -890,52 +900,21 @@ async function responseLLM(LLM, userInput, user, channel, guild, system, context
 	response = response.split("\n").filter(e => !!e).map(e => {
 		return JSON.parse(e);
 	});
-
-	context = response.filter(e => e.done && e.context)[0].context;
 
 	if(contextboolean != false){
-	await setcontext(channel.id, context)
+		context = response.filter(e => e.done && e.context)[0].context;
+		await setcontext(channel.id, context)
 	}
 
 	let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
 		if (responseText.length == 0) {
 			responseText = "(No response)";
 		}
-
-	return responseText
 	
-}
-
-async function responseImageLLM(LLM, userInput, image, user, channel, guild, system) {
-	// Adding additional info about conversation! (A little much i know i need to make this look better!)
-	userInput = await LLMUserInputScopeFetch(userInput, user, channel, guild)
-	var usersystemMessage = await readsystemmsg(channel.id)
-	var systemMessagetomodel = `${usersystemMessage}`
-	log(LogLevel.Debug, `SYSTEM MESSAGE\n${systemMessagetomodel}`)
-	if(system != false) { systemMessagetomodel += system}
-
-	var response = (await makeRequest("/api/generate", "post", {
-		model: LLM,
-		prompt: userInput,
-		system: systemMessagetomodel,
-		keep_alive: 0,
-		images: image
-	}));
-
-	if (typeof response != "string") {
-		log(LogLevel.Debug, response);
-		throw new TypeError("response is not a string, this may be an error with ollama");
+	let responseError = response.map(e => e.error).filter(e => e != null)
+	if (responseError.length != 0) {
+		responseText = `${responseError}`;
 	}
-
-	response = response.split("\n").filter(e => !!e).map(e => {
-		return JSON.parse(e);
-	});
-
-	let responseText = response.map(e => e.response).filter(e => e != null).join("").trim();
-		if (responseText.length == 0) {
-			responseText = "(No response)";
-		}
-
 
 	return responseText
 	
@@ -1254,10 +1233,10 @@ client.on(Events.MessageCreate, async message => {
 		}, 7000);
 
 		if(imagesb64 != false && imagesb64 != `fail`){
-		var responseText = await responseImageLLM(imagemodel, userInput, imagesb64, message.author, message.channel, message.guild, `Describe the image provided! `)
+		var responseText = await responseLLM(userInput, message.author, message.channel, message.guild, true, false, imagesb64)
 		log(LogLevel.Debug, `Using Image LLM`)
 		} else {
-		var responseText = await responseLLM(model, userInput, message.author, message.channel, message.guild, false, true)
+		var responseText = await responseLLM(userInput, message.author, message.channel, message.guild, true, true)
 		log(LogLevel.Debug, `Using Text-Only LLM`)
 		}
 
@@ -1799,11 +1778,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					.trim();
 				log(LogLevel.Debug, prompt)
 
-				const model = process.env.IMAGEMODEL;
 				const system = options.getString("system") || channel_system;
 				await interaction.deferReply()
 
-				let responseText = await responseImageLLM(model, prompt, imagesb64, interaction.user, interaction.channel, interaction.guild, system)
+				let responseText = await responseImageLLM(prompt, imagesb64, interaction.user, interaction.channel, interaction.guild, system, true, false, imagesb64 )
 	
 				log(LogLevel.Debug, `Response: ${responseText}`);
 
