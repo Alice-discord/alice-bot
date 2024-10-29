@@ -893,8 +893,6 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
 		}));
 	}
 
-	log(LogLevel.Debug, typeof await response, await response)
-
 	if (typeof response != "string") {
 		log(LogLevel.Debug, response);
 		throw new TypeError("response is not a string, this may be an error with ollama");
