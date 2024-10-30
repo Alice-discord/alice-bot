@@ -22,7 +22,6 @@ import enablewelcome from "./enablewelcome.js";
 import disablewelcome from "./disablewelcome.js";
 import setwelcomesysmsg from "./setwelcomesysmsg.js";
 import support from "./support.js";
-import channelsettings from "./channelsettings.js"
 import setchannelsettings from  "./setchannelsettings.js"
 
 const commandsArray = [
@@ -32,6 +31,6 @@ const commandsArray = [
     describe, upscale, addchannel, rmchannel, clear,
     respond, website, enablewelcome,
     disablewelcome, setwelcomesysmsg,
-    support, channelsettings, setchannelsettings];
+    support, setchannelsettings];
 
 export default commandsArray;

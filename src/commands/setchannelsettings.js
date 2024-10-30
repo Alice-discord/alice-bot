@@ -3,7 +3,7 @@ import { SlashCommandBuilder } from "discord.js";
 const setchannelsettings = new SlashCommandBuilder()
 	.setContexts([0, 1, 2])
 	.setIntegrationTypes([0, 1])
-	.setName("setchannelsettings")
+	.setName("channelsettings")
 	.setDescription("Change current channel settings!")
     .addBooleanOption((option) =>
 		option

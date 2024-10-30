@@ -34,13 +34,9 @@ var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES.split(",");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `${process.env.MONGODB_URI}`;
 const db = `${process.env.MONGODB_DB}`;
-const contextcollect = `${process.env.MONGO_CONTEXT_COLLECTION}`;
-const blockedcollect = `${process.env.MONGO_BLOCKED_COLLECTION}`;
+const guildscollect = `${process.env.MONGO_GUILDS_COLLECTION}`;
 const channelscollect = `${process.env.MONGO_CHANNELS_COLLECTION}`;
-const initialpromptcollect = `${process.env.MONGO_INITIAL_PROMPT_COLLECTION}`;
-const systemmessagecollect = `${process.env.MONGO_SYSTEM_MESSAGE_COLLECTION}`;
-const welcomemessagebooleancollect = `${process.env.MONGO_WELCOME_MESSAGE_BOOLEAN_COLLECTION}`;
-const welcomemessagesystemmessagecollect = `${process.env.MONGO_WELCOME_MESSAGE_SYSTEM_MESSAGE_COLLECTION}`;
+const userscollect = `${process.env.MONGO_USERS_COLLECTION}`;
 const mongoclient = new MongoClient(uri,  {
 	monitorCommands: true,
         serverApi: {
@@ -67,13 +63,15 @@ async function setcontext(channelID, context) {
 	  // Connect the client to the server
 	  await mongoclient.connect();
 
- 	//Check if data already exsists and replaces it
-    if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
-    {
-    await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${context}` });
-    } else {
-    await mongoclient.db(db).collection(contextcollect).insertOne({ channelID: `${channelID}`, context: `${context}` })
-    } 
+
+	  if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1)
+		{
+		  await mongoclient.db(db).collection(contextcollect).insertOne({channelID: `${channelID}`, context: `${context}`})
+		  await mongoclient.close();
+		} else {
+			await mongoclient.db(db).collection(channelscollect).updateOne({channelID: `${channelID}`}, {$set:{channelID: `${channelID}`, context: `${context}`}})
+			await mongoclient.close();
+		}
 	
 	} finally {
 	  // Ensures that the client will close when you finish/error
@@ -82,18 +80,19 @@ async function setcontext(channelID, context) {
 }
 
 async function clearcontext(channelID) {
-	var clearcontextresponse = `somin went wrong`
 	try {
 	  // Connect the client to the server
 	  await mongoclient.connect();
- 	//Check if data already exsists and replaces it
-    if(await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
-    {
-    await mongoclient.db(db).collection(contextcollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, context: `${[0]}` });
-	var clearcontextresponse = `Cleared message history of ${channelID}`
-    } else {
-	var clearcontextresponse = `Cannot clear message history of ${channelID}`
-    } 
+	  if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1)
+		{
+		  await mongoclient.db(db).collection(contextcollect).insertOne({channelID: `${channelID}`, context: `${[0]}`})
+		  await mongoclient.close();
+		  var clearcontextresponse = `Reset context`
+		} else {
+			await mongoclient.db(db).collection(channelscollect).updateOne({channelID: `${channelID}`}, {$set:{channelID: `${channelID}`, context: `${[0]}`}})
+			await mongoclient.close();
+			var clearcontextresponse = `Reset context`
+		}
 	
 	} finally {
 	  // Ensures that the client will close when you finish/error
@@ -106,7 +105,7 @@ async function readcontext(channelID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data already exists and replaces it
-	if (await mongoclient.db(db).collection(contextcollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
 	{
 	  const query = { channelID: `${channelID}` };
 	  const options = {
@@ -117,7 +116,7 @@ async function readcontext(channelID) {
 	  };
   
 	  //Read context from database
-	  var readcontextresponse = await mongoclient.db(db).collection(contextcollect).findOne(query, options);
+	  var readcontextresponse = await mongoclient.db(db).collection(channelscollect).findOne(query, options);
 	  readcontextresponse = JSON.parse("[" + readcontextresponse.context.replace(/"/g, '') + "]");
   
 	  await mongoclient.close();
@@ -133,13 +132,15 @@ async function setinit(userID, initalprompt) {
 	  // Connect the client to the server
 	  await mongoclient.connect();
 
-	  //Check if data already exsists and replaces it
-	  if(await mongoclient.db(db).collection(initialpromptcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
-	  {
-	  await mongoclient.db(db).collection(initialpromptcollect).replaceOne({ userID: `${userID}` }, { userID: `${userID}`, initialprompt: `${initalprompt}` });
-	  } else {
-	  await mongoclient.db(db).collection(initialpromptcollect).insertOne({ userID: `${userID}`, initialprompt: `${initalprompt}` })
-	  } 
+	  if(!await mongoclient.db(db).collection(userscollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1)
+		{
+		  await mongoclient.db(db).collection(userscollect).insertOne({ userID: `${userID}`, initialprompt: `${initalprompt}`})
+		  await mongoclient.close();
+		} else {
+			await mongoclient.db(db).collection(userscollect).updateOne({ userID: `${userID}`}, {$set:{ userID: `${userID}`, initialprompt: `${initalprompt}`}})
+			await mongoclient.close();
+		}
+	  
 	} finally {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
@@ -150,7 +151,7 @@ async function readinitprompt(userID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data exists
-	if (await mongoclient.db(db).collection(initialpromptcollect).countDocuments({userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+	if (await mongoclient.db(db).collection(userscollect).countDocuments({userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
 	{
 	  const query = { userID: `${userID}` };
 	  const options = {
@@ -161,7 +162,7 @@ async function readinitprompt(userID) {
 	  };
   
 	  //Read initialprompt from database
-	  var readinitresponse = await mongoclient.db(db).collection(initialpromptcollect).findOne(query, options);
+	  var readinitresponse = await mongoclient.db(db).collection(userscollect).findOne(query, options);
 	  readinitresponse = JSON.stringify(readinitresponse.initialprompt).slice(1,-1)
   
 	  await mongoclient.close();
@@ -177,13 +178,15 @@ async function setsystem(channelID, systemmessage) {
 	  // Connect the client to the server
 	  await mongoclient.connect();
 
-	//Check if data already exsists and replaces it
-    if(await mongoclient.db(db).collection(systemmessagecollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
-    {
-    await mongoclient.db(db).collection(systemmessagecollect).replaceOne({ channelID: `${channelID}` }, { channelID: `${channelID}`, systemmessage: `${systemmessage}` });
-    } else {
-    await mongoclient.db(db).collection(systemmessagecollect).insertOne({ channelID: `${channelID}`, systemmessage: `${systemmessage}` })
-    } 
+	  if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1)
+		{
+		  await mongoclient.db(db).collection(channelscollect).insertOne({ channelID: `${channelID}`, systemmessage: `${systemmessage}`})
+		  await mongoclient.close();
+		} else {
+			await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{channelID: `${channelID}`, systemmessage: `${systemmessage}`}})
+			await mongoclient.close();
+		}
+	
 	} finally {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
@@ -194,7 +197,7 @@ async function readsystemmsg(channelID) {
 	// Connect the client to the server
 	await mongoclient.connect();
 	//Check if data exists
-	if (await mongoclient.db(db).collection(systemmessagecollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
 	{
 	  const query = { channelID: `${channelID}` };
 	  const options = {
@@ -205,8 +208,8 @@ async function readsystemmsg(channelID) {
 	  };
   
 	  //Read systemmessage from database
-	  var readsystemmessageresponse = await mongoclient.db(db).collection(systemmessagecollect).findOne(query, options);
-	  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.systemmessage).slice(1,-1)
+	  var readsystemmessageresponse = await mongoclient.db(db).collection(channelscollect).findOne(query, options);
+	  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.systemmessage)
   
 	  await mongoclient.close();
 	  return readsystemmessageresponse;
@@ -220,7 +223,7 @@ async function checkBlockeduser(userID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
-		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+		if(await mongoclient.db(db).collection(userscollect).countDocuments({ userID: `${userID}`, isblocked: true}, { limit: 1 }) == 1) //if it does 
 		{
 		await mongoclient.close();
 		return true
@@ -234,7 +237,7 @@ async function checkBlockedguild(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
-		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		if(await mongoclient.db(db).collection(guildscollect).countDocuments({ guildID: `${guildID}`, isblocked: true}, { limit: 1 }) == 1) //if it does 
 		{
 		await mongoclient.close();
 		return true
@@ -248,7 +251,7 @@ async function checkBlockeduserreason(userID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
-		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
+		if(await mongoclient.db(db).collection(userscollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
 		{
 			const query = { userID: `${userID}` };
 			const options = {
@@ -259,7 +262,7 @@ async function checkBlockeduserreason(userID) {
 			};
 		
 			//Read blockreason from database
-			var readblockreasonresponse = await mongoclient.db(db).collection(blockedcollect).findOne(query, options);
+			var readblockreasonresponse = await mongoclient.db(db).collection(userscollect).findOne(query, options);
 			readblockreasonresponse = JSON.stringify(readblockreasonresponse.blockreason).slice(1,-1)
 
 		await mongoclient.close();
@@ -274,7 +277,7 @@ async function checkBlockedguildreason(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
-		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		if(await mongoclient.db(db).collection(guildscollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
 		{
 			const query = { guildID: `${guildID}`};
 			const options = {
@@ -285,7 +288,7 @@ async function checkBlockedguildreason(guildID) {
 			};
 		
 			//Read blockreason from database
-			var readblockreasonresponse = await mongoclient.db(db).collection(blockedcollect).findOne(query, options);
+			var readblockreasonresponse = await mongoclient.db(db).collection(guildscollect).findOne(query, options);
 			readblockreasonresponse = JSON.stringify(readblockreasonresponse.blockreason).slice(1,-1)
 
 		await mongoclient.close();
@@ -297,39 +300,34 @@ async function checkBlockedguildreason(guildID) {
 }
 
 async function addBlockeduser(userID, reason) {
-		
-		  // Connect the client to the server
-		  await mongoclient.connect();
 	
-		  //Check if data exsists and inserts if not
-		  if(!await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
-		  {
-			await mongoclient.db(db).collection(blockedcollect).insertOne({ userID: `${userID}`, blockreason: `${reason}` })
+	await mongoclient.connect();
+
+	if(!await mongoclient.db(db).collection(userscollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1)
+		{
+		  await mongoclient.db(db).collection(userscollect).insertOne({ userID: `${userID}`, isblocked: true, blockreason: `${reason}`})
+		  await mongoclient.close();
+		  return `Blocked USER (${userID})`;
+		} else {
+			await mongoclient.db(db).collection(userscollect).updateOne({ userID: `${userID}`}, {$set:{ userID: `${userID}`, isblocked: true, blockreason: `${reason}`}})
 			await mongoclient.close();
 			return `Blocked USER (${userID})`;
-		  } 
-		
-		// Ensures that the client will close when you finish/error
-		await mongoclient.close();
-		return `USER (${userID}) Is already blocked`
+		}
 }
 
 async function addBlockedguild(guildID, reason) {
-		
-		// Connect the client to the server
-		await mongoclient.connect();
-  
-		//Check if data exsists and inserts if not
-		if(!await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+	await mongoclient.connect();
+
+	if(!await mongoclient.db(db).collection(guildscollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1)
 		{
-		  await mongoclient.db(db).collection(blockedcollect).insertOne({ guildID: `${guildID}`, blockreason: `${reason}` })
+		  await mongoclient.db(db).collection(guildscollect).insertOne({ guildID: `${guildID}`, isblocked: true, blockreason: `${reason}`})
 		  await mongoclient.close();
 		  return `Blocked GUILD (${guildID})`;
-		} 
-	  
-	  // Ensures that the client will close when you finish/error
-	  await mongoclient.close();
-	  return `GUILD (${guildID}) Is already blocked`;
+		} else {
+			await mongoclient.db(db).collection(guildscollect).updateOne({ guildID: `${guildID}`}, {$set:{ guildID: `${guildID}`, isblocked: true, blockreason: `${reason}`}})
+			await mongoclient.close();
+			return `Blocked GUILD (${guildID})`;
+		}
 }
 
 async function removeBlockeduser(userID) {
@@ -337,17 +335,16 @@ async function removeBlockeduser(userID) {
 		// Connect the client to the server
 		await mongoclient.connect();
   
-		//Check if data exsists and inserts if not
-		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1) //if it does 
-		{
-		  await mongoclient.db(db).collection(blockedcollect).deleteOne({ userID: `${userID}`})
-		  await mongoclient.close();
-		  return `Removed block on USER (${userID})`;
-		} 
-	  
-	  // Ensures that the client will close when you finish/error
-	  await mongoclient.close();
-	  return `USER (${userID}) Is not blocked`
+		if(!await mongoclient.db(db).collection(userscollect).countDocuments({ userID: `${userID}`}, { limit: 1 }) == 1)
+			{
+			  await mongoclient.db(db).collection(userscollect).insertOne({ userID: `${userID}`, isblocked: false, blockreason: `UNBLOCKED`})
+			  await mongoclient.close();
+			  return `unblocked USER (${userID})`;
+			} else {
+				await mongoclient.db(db).collection(userscollect).updateOne({ userID: `${userID}`}, {$set:{ userID: `${userID}`, isblocked: false, blockreason: `UNBLOCKED`}})
+				await mongoclient.close();
+				return `unblocked USER (${userID})`;
+			}
 }
 	
 async function removeBlockedguild(guildID) {
@@ -355,18 +352,17 @@ async function removeBlockedguild(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
   
-		//Check if data exsists and inserts if not
-		if(await mongoclient.db(db).collection(blockedcollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
-		{
-		  await mongoclient.db(db).collection(blockedcollect).deleteOne({ guildID: `${guildID}`})
-		  await mongoclient.close();
-		  return `Removed block on GUILD (${guildID})`;
-		} 
-	  
-	  // Ensures that the client will close when you finish/error
-	  await mongoclient.close();
-	  return `GUILD (${guildID}) Is not blocked`;
-}
+		if(!await mongoclient.db(db).collection(guildscollect).countDocuments({ guildID: `${guildID}`}, { limit: 1 }) == 1)
+			{
+			  await mongoclient.db(db).collection(guildscollect).insertOne({ guildID: `${guildID}`, isblocked: false, blockreason: `UNBLOCKED`})
+			  await mongoclient.close();
+			  return `unblocked GUILD (${guildID})`;
+			} else {
+				await mongoclient.db(db).collection(guildscollect).updateOne({ guildID: `${guildID}`}, {$set:{ guildID: `${guildID}`, isblocked: false, blockreason: `UNBLOCKED`}})
+				await mongoclient.close();
+				return `unblocked GUILD (${guildID})`;
+			}
+		}
 
 async function setwelcomesystemmsg(guildID, systemmessage) {
 		try {
@@ -374,11 +370,11 @@ async function setwelcomesystemmsg(guildID, systemmessage) {
 		  await mongoclient.connect();
 	
 		//Check if data already exsists and replaces it
-		if(await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		if(await mongoclient.db(db).collection(guildscollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
 		{
-		await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).replaceOne({ guildID: `${guildID}` }, { guildID: `${guildID}`, systemmessage: `${systemmessage}` });
+		await mongoclient.db(db).collection(guildscollect).updateOne({ guildID: `${guildID}` }, {$set: {guildID: `${guildID}`, welcomesystemmessage: `${systemmessage}` }});
 		} else {
-		await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).insertOne({ guildID: `${guildID}`, systemmessage: `${systemmessage}` })
+		await mongoclient.db(db).collection(guildscollect).insertOne({ guildID: `${guildID}`, welcomesystemmessage: `${systemmessage}` })
 		} 
 		} finally {
 		  // Ensures that the client will close when you finish/error
@@ -390,19 +386,19 @@ async function readwelcomesystemmsg(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exists
-		if (await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		if (await mongoclient.db(db).collection(guildscollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
 		{
 		  const query = { guildID: `${guildID}` };
 		  const options = {
 			// Sort matched documents in descending order by rating
-			sort: { "systemmessage": -1 },
+			sort: { "welcomesystemmessage": -1 },
 			// Include only the `systemmessage` field in the returned document
-			projection: { _id: 0, systemmessage: 1 },
+			projection: { _id: 0, welcomesystemmessage: 1 },
 		  };
 	  
 		  //Read systemmessage from database
-		  var readsystemmessageresponse = await mongoclient.db(db).collection(welcomemessagesystemmessagecollect).findOne(query, options);
-		  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.systemmessage).slice(1,-1)
+		  var readsystemmessageresponse = await mongoclient.db(db).collection(guildscollect).findOne(query, options);
+		  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.welcomesystemmessage).slice(1,-1)
 	  
 		  await mongoclient.close();
 		  return readsystemmessageresponse;
@@ -418,11 +414,11 @@ async function setwelcomesystemmsgboolean(guildID, boolean) {
 		  await mongoclient.connect();
 	
 		//Check if data already exsists and replaces it
-		if(await mongoclient.db(db).collection(welcomemessagebooleancollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		if(await mongoclient.db(db).collection(guildscollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
 		{
-		await mongoclient.db(db).collection(welcomemessagebooleancollect).replaceOne({ guildID: `${guildID}` }, { guildID: `${guildID}`, boolean: `${boolean}` });
+		await mongoclient.db(db).collection(guildscollect).updateOne({ guildID: `${guildID}` }, {$set: {guildID: `${guildID}`, welcomeusers: boolean}});
 		} else {
-		await mongoclient.db(db).collection(welcomemessagebooleancollect).insertOne({ guildID: `${guildID}`, boolean: `${boolean}` })
+		await mongoclient.db(db).collection(guildscollect).insertOne({ guildID: `${guildID}`, welcomeusers: boolean })
 		} 
 		} finally {
 		  // Ensures that the client will close when you finish/error
@@ -434,20 +430,19 @@ async function readwelcomesystemmsgboolean(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exists
-		if (await mongoclient.db(db).collection(welcomemessagebooleancollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		if (await mongoclient.db(db).collection(guildscollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
 		{
 		  const query = { guildID: `${guildID}` };
 		  const options = {
 			// Sort matched documents in descending order by rating
-			sort: { "boolean": -1 },
+			sort: { "welcomeusers": -1 },
 			// Include only the `boolean` field in the returned document
-			projection: { _id: 0, boolean: 1 },
+			projection: { _id: 0, welcomeusers: 1 },
 		  };
 	  
 		  //Read boolean from database
-		  var readbooleanresponse = await mongoclient.db(db).collection(welcomemessagebooleancollect).findOne(query, options);
-		  readbooleanresponse = JSON.stringify(readbooleanresponse.boolean).slice(1,-1)
-		  readbooleanresponse = getBoolean(readbooleanresponse)
+		  var readbooleanresponse = await mongoclient.db(db).collection(guildscollect).findOne(query, options);
+		  readbooleanresponse = JSON.stringify(readbooleanresponse.welcomeusers)
 	  
 		  await mongoclient.close();
 		  return readbooleanresponse;
@@ -659,7 +654,8 @@ var regex = new RegExp('(?:^|' + bound + ')(?:'
 		try {
 		await client.users.cache.get(`${user.id}`).send(`You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`);
 		} finally {
-		await addBlockeduser(user.id);
+		var blockreason = `You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen`
+		await addBlockeduser(user.id, blockreason);
 		return true;}
 	}
 	return false;
@@ -677,7 +673,8 @@ async function checkForBlockedWordsGUILD(guild, uncheckedcontent) {
 			)
 			await channelG.sendTyping();
 			await channelG.send(`The guild has been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`);
-			await addBlockedguild(guild.id);
+			var blockreason = `You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen`
+			await addBlockedguild(guild.id, blockreason);
 			guild.leave();
 			return true;
 		}
@@ -1575,176 +1572,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 	const embedColor = Number(process.env.EMBED_COLOR)
 
 	switch (commandName) {
-		case "setchannelsettings":
-			log(LogLevel.Debug, `Attempting to run /setchannelsettings`)
-			const requires_mention = options.getBoolean("requires_mention");
-			const include_system_time = options.getBoolean("include_system_time");
-			const include_coordinated_universal_time = options.getBoolean("include_utc");
-			const include_username = options.getBoolean("include_username");
-			const include_user_id = options.getBoolean("include_user_id");
-			const include_user_nick = options.getBoolean("include_user_nick");
-			const include_channel_id = options.getBoolean("include_channel_id");
-			const include_channel_name = options.getBoolean("include_channel_name");
-			const include_guild_name = options.getBoolean("include_guild_name");
-
-			await interaction.deferReply();
-			await setChannelSettings(interaction.channel.id, requires_mention, include_system_time, include_coordinated_universal_time, include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name)
-
-			var responseEmbed = {
-				color: embedColor,
-				title: 'Current Channel Settings',
-				author: {
-					name: embedName,
-					url: embedLink,
-				},
-				description: `Channel settings as of right now for the channel <#${interaction.channel.id}>`,
-				thumbnail: {
-					url: embedThumb,
-				},
-				fields: [
-					{
-						name: 'Channel settings',
-						value: 'The following parameters are set for channel settings',
-					},
-					{
-						name: 'requires_mention',
-						value: `${(await readChannelSettings(interaction.channel.id)).requiresMention}`,
-						inline: true,
-					},
-					{
-						name: 'include_system_time',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_system_time}`,
-						inline: true,
-					},
-					{
-						name: 'include_coordinated_universal_time',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_coordinated_universal_time}`,
-						inline: true,
-					},
-					{
-						name: 'include_username',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_username}`,
-						inline: true,
-					},
-					{
-						name: 'include_user_id',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_user_id}`,
-						inline: true,
-					},
-					{
-						name: 'include_user_nick',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_user_nick}`,
-						inline: true,
-					},
-					{
-						name: 'include_channel_id',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_id}`,
-						inline: true,
-					},
-					{
-						name: 'include_channel_name',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_name}`,
-						inline: true,
-					},
-					{
-						name: 'include_guild_name',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_guild_name}`,
-						inline: true,
-					},
-				],
-				timestamp: new Date().toISOString(),
-				footer: {
-					text: 'Channel settings',
-					icon_url: embedIcon,
-				},
-			};
-
-			await interaction.editReply({
-				embeds: [responseEmbed],
-			})
-
-
-			log(LogLevel.Debug, `Finished responding to /setchannelsettings`)
-		break;
-		case "channelsettings":
-			log(LogLevel.Debug, `Attempting to run /channelsettings`)
-
-			await interaction.deferReply();
-			var responseEmbed = {
-				color: embedColor,
-				title: 'Current Channel Settings',
-				author: {
-					name: embedName,
-					url: embedLink,
-				},
-				description: `Channel settings as of right now for the channel <#${interaction.channel.id}>`,
-				thumbnail: {
-					url: embedThumb,
-				},
-				fields: [
-					{
-						name: 'Channel settings',
-						value: 'The following parameters are set for channel settings',
-					},
-					{
-						name: 'requires_mention',
-						value: `${(await readChannelSettings(interaction.channel.id)).requiresMention}`,
-						inline: true,
-					},
-					{
-						name: 'include_system_time',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_system_time}`,
-						inline: true,
-					},
-					{
-						name: 'include_coordinated_universal_time',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_coordinated_universal_time}`,
-						inline: true,
-					},
-					{
-						name: 'include_username',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_username}`,
-						inline: true,
-					},
-					{
-						name: 'include_user_id',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_user_id}`,
-						inline: true,
-					},
-					{
-						name: 'include_user_nick',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_user_nick}`,
-						inline: true,
-					},
-					{
-						name: 'include_channel_id',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_id}`,
-						inline: true,
-					},
-					{
-						name: 'include_channel_name',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_name}`,
-						inline: true,
-					},
-					{
-						name: 'include_guild_name',
-						value: `${(await readChannelSettings(interaction.channel.id)).include_guild_name}`,
-						inline: true,
-					},
-				],
-				timestamp: new Date().toISOString(),
-				footer: {
-					text: 'Channel settings',
-					icon_url: embedIcon,
-				},
-			};
-
-			await interaction.editReply({
-				embeds: [responseEmbed],
-			})
-
-			log(LogLevel.Debug, `Finished responding to /channelsettings`)
-		break;
 		case "text2img":
 			log(LogLevel.Debug, `Attempting to run /text2img`)
 
@@ -3143,6 +2970,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
 							value: `Set the system message the bot uses while generating welcome messages!`,
 						},
 						{
+							name: '/channelsettings',
+							value: `Set the Channel variables and settings!`,
+						},
+						{
 							name: 'System messages',
 							value: `System messages are tied to channel ID's; they are guidelines for a bot to follow, for example if I wrote "you must respond as chewbacca" the bot would try its best to follow those guidelines and respond as chewbacca!`,
 						},
@@ -3690,6 +3521,97 @@ client.on(Events.InteractionCreate, async (interaction) => {
 					}
 				}
 				log(LogLevel.Debug, `Finished responding to /support`)
+				break;
+				case "setchannelsettings":
+					log(LogLevel.Debug, `Attempting to run /setchannelsettings`)
+					const requires_mention = options.getBoolean("requires_mention");
+					const include_system_time = options.getBoolean("include_system_time");
+					const include_coordinated_universal_time = options.getBoolean("include_utc");
+					const include_username = options.getBoolean("include_username");
+					const include_user_id = options.getBoolean("include_user_id");
+					const include_user_nick = options.getBoolean("include_user_nick");
+					const include_channel_id = options.getBoolean("include_channel_id");
+					const include_channel_name = options.getBoolean("include_channel_name");
+					const include_guild_name = options.getBoolean("include_guild_name");
+		
+					await interaction.deferReply();
+					await setChannelSettings(interaction.channel.id, requires_mention, include_system_time, include_coordinated_universal_time, include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name)
+		
+					var responseEmbed = {
+						color: embedColor,
+						title: 'Current Channel Settings',
+						author: {
+							name: embedName,
+							url: embedLink,
+						},
+						description: `Channel settings as of right now for the channel <#${interaction.channel.id}>`,
+						thumbnail: {
+							url: embedThumb,
+						},
+						fields: [
+							{
+								name: 'Channel settings',
+								value: 'The following parameters are set for channel settings',
+							},
+							{
+								name: 'requires_mention',
+								value: `${(await readChannelSettings(interaction.channel.id)).requiresMention}`,
+								inline: true,
+							},
+							{
+								name: 'include_system_time',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_system_time}`,
+								inline: true,
+							},
+							{
+								name: 'include_coordinated_universal_time',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_coordinated_universal_time}`,
+								inline: true,
+							},
+							{
+								name: 'include_username',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_username}`,
+								inline: true,
+							},
+							{
+								name: 'include_user_id',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_user_id}`,
+								inline: true,
+							},
+							{
+								name: 'include_user_nick',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_user_nick}`,
+								inline: true,
+							},
+							{
+								name: 'include_channel_id',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_channel_id}`,
+								inline: true,
+							},
+							{
+								name: 'include_channel_name',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_channel_name}`,
+								inline: true,
+							},
+							{
+								name: 'include_guild_name',
+								value: `${(await readChannelSettings(interaction.channel.id)).include_guild_name}`,
+								inline: true,
+							},
+						],
+						timestamp: new Date().toISOString(),
+						footer: {
+							text: 'Channel settings',
+							icon_url: embedIcon,
+						},
+					};
+		
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
+		
+		
+					log(LogLevel.Debug, `Finished responding to /setchannelsettings`)
 				break;
 	}
 }}});
