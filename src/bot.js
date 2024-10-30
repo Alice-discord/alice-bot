@@ -19,22 +19,12 @@ import { Logger, LogLevel } from "meklog";
 import dotenv from "dotenv";
 import axios from "axios";
 import commands from "./commands/commands.js";
-import { error } from "console";
 
 // Enviorment variables
 const welcomeuser = getBoolean(process.env.SENDWELCOMEMESSAGE);
 const servers = process.env.OLLAMA.split(",").map(url => ({ url: new URL(url), available: true }));
 const FluxServers = process.env.WEBUIFORGE.split(",").map(url => ({ url: new URL(url), available: true }));
 const randomServer = getBoolean(process.env.RANDOM_SERVER);
-const usesystime = getBoolean(process.env.DATEINMESSAGE);
-const useutctime = getBoolean(process.env.UTCTIMEINMESSAGE);
-const useUsername = getBoolean(process.env.USEUSERNAME);
-const useUserID = getBoolean(process.env.USEUSERID);
-const useServername = getBoolean(process.env.USEGUILDNAME);
-const useChannelID = getBoolean(process.env.USECHANNELID);
-const useChannelname = getBoolean(process.env.USECHANNELNAME);
-const requiresMention = getBoolean(process.env.REQUIRES_MENTION);
-const useNickname = getBoolean(process.env.USENICKNAME);
 var model = process.env.MODEL;
 var imagemodel = process.env.IMAGEMODEL;
 var embedmodel = process.env.EMBEDDINGMODEL;
@@ -543,6 +533,123 @@ async function checkChannel(channelID) {
 		return false
 }
 
+async function setChannelSettings(channelID, requires_mention, include_system_time, include_coordinated_universal_time, include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name) {
+
+	await mongoclient.connect();
+
+	if(requires_mention != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, requiresMention: requires_mention}})
+	}
+
+	if(include_system_time != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_system_time: include_system_time}})
+	}
+
+	if(include_coordinated_universal_time != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_coordinated_universal_time: include_coordinated_universal_time}})
+	}
+
+	if(include_username != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_username: include_username}})
+	}
+
+	if(include_user_id != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_user_id: include_user_id}})
+	}
+
+	if(include_user_nick != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_user_nick: include_user_nick}})
+	}
+
+	if(include_channel_id != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_channel_id: include_channel_id}})
+	}
+
+	if(include_channel_name != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_channel_name: include_channel_name}})
+	}
+
+	if(include_guild_name != null){
+	await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, include_guild_name: include_guild_name}})
+	}
+	
+	await mongoclient.close();
+	return;
+}
+
+async function readChannelSettings(channelID){
+
+	await mongoclient.connect();
+
+	var requiresMention = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, requiresMention: false}, { limit: 1 }) == 1) 
+	{
+	var requiresMention = false
+	}
+	
+	var include_system_time = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_system_time: false}, { limit: 1 }) == 1) 
+	{
+	var include_system_time = false
+	}
+
+	var include_coordinated_universal_time = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_coordinated_universal_time: false}, { limit: 1 }) == 1)  
+	{
+	var include_coordinated_universal_time = false
+	}
+
+	var include_username = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_username: false}, { limit: 1 }) == 1) 
+	{
+	var include_username = false
+	}
+
+	var include_user_id = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_user_id: false}, { limit: 1 }) == 1) 
+	{
+	var include_user_id = false
+	}
+
+	var include_user_nick = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_user_nick: false}, { limit: 1 }) == 1)
+	{
+	var include_user_nick = false
+	}
+
+	var include_channel_id = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_channel_id: false}, { limit: 1 }) == 1)  
+	{
+	var include_channel_id = false
+	}
+
+	var include_channel_name = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_channel_name: false}, { limit: 1 }) == 1) 
+	{
+	var include_channel_name = false
+	}
+
+	var include_guild_name = true
+	if (await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, include_guild_name: false}, { limit: 1 }) == 1)
+	{
+	var include_guild_name = false
+	}
+
+	await mongoclient.close();
+	return {
+		requiresMention,
+		include_system_time,
+		include_coordinated_universal_time,
+		include_username,
+		include_user_id,
+		include_user_nick,
+		include_channel_id,
+		include_channel_name,
+		include_guild_name
+	}
+	
+}
+
 async function checkForBlockedWordsUSER(user, uncheckedcontent) {
 var bound = '[^\\w\u00c0-\u02c1\u037f-\u0587\u1e00-\u1ffe]';
 var regex = new RegExp('(?:^|' + bound + ')(?:'
@@ -835,43 +942,43 @@ async function Embedding(input) {
 
 async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 	if(user != false){
-	var currentutctime = useutctime ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
-	var currentsystime = usesystime ? `Current System time: ${new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })}\n` : ``;
-		var UserUsername = useUsername ? `USERNAME OF DISCORD USER: ${user.username}\n` : ``;
-		var UserID = useUserID ? `DISCORD USER-ID: ${user.id}\nDISCORD USER MENTION IS: <@${user.id}>` : ``;
+	var currentutctime = (await readChannelSettings(channel.id)).include_coordinated_universal_time ? `Current UTC time: ${new Date().toISOString()}\n` : ``;
+	var currentsystime = (await readChannelSettings(channel.id)).include_system_time ? `Current System time: ${new Date().toLocaleDateString('en-us', { weekday: "long", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "numeric" })}\n` : ``;
+		var UserUsername = (await readChannelSettings(channel.id)).include_username ? `USERNAME OF DISCORD USER: ${user.username}\n` : ``;
+		var UserID = (await readChannelSettings(channel.id)).include_user_id ? `DISCORD USER-ID: ${user.id}\nDISCORD USER MENTION IS: <@${user.id}>` : ``;
 		} else {
 		var UserUsername = ``;
 		var UserID = ``;
 		}
 		if (channel != false){
-		var ChannelID = useChannelID ? `DISCORD CHANNEL ID: ${channel.id}\n` : ``;
+		var ChannelID = (await readChannelSettings(channel.id)).include_channel_id ? `DISCORD CHANNEL ID: ${channel.id}\n` : ``;
 		} else {
 		var ChannelID = ``;
 		}
 		if (guild == null) {
 		if(user != false){
-		var ChannelName = useChannelname ? `Direct-message with the user ${user.tag}\n` : ``;
+		var ChannelName = (await readChannelSettings(channel.id)).include_channel_name ? `Direct-message with the user ${user.tag}\n` : ``;
 		} else {
-		var ChannelName = useChannelname ``;
+		var ChannelName = ``;
 		}
 		var ServerName = ``;
 		}
 		else {
 		if (channel != false){
 		if (ChannelID != ``) ChannelID += `DISCORD CHANNEL MENTION: <#${channel.id}>\n`;
-		var ChannelName = useChannelname ? `DISCORD SERVER CHANNEL NAME: #${channel.name}\n` : ``;
+		var ChannelName = (await readChannelSettings(channel.id)).include_channel_name ? `DISCORD SERVER CHANNEL NAME: #${channel.name}\n` : ``;
 		} else {
 			var ChannelID = ``;
 			var ChannelName = ``;	
 		}
 		if (guild != false){
-		var ServerName = useServername ? `DISCORD SERVER NAME: ${guild.name}\n` : ``;
+		var ServerName = (await readChannelSettings(channel.id)).include_guild_name ? `DISCORD SERVER NAME: ${guild.name}\n` : ``;
 		} else {
 		var ServerName = ``;
 		}
 		}
 		if(user != false){
-		var Nickname = useNickname ? `DISCORD NICKNAME OF USER: ${user.displayName}\n` : ``;
+		var Nickname = (await readChannelSettings(channel.id)).include_user_nick ? `DISCORD NICKNAME OF USER: ${user.displayName}\n` : ``;
 		var initialPrompt = `${await readinitprompt(user.id)}\n\n`
 		log(LogLevel.Debug, `INITIAL PROMPT\n${initialPrompt}`);
 		} else {
@@ -1092,7 +1199,7 @@ client.on(Events.MessageCreate, async message => {
 			return;
 		}
 
-		if (message.type == MessageType.Default && (requiresMention && message.guild && !message.content.match(myMention))) return;
+		if (message.type == MessageType.Default && ((await readChannelSettings(message.channel.id)).requiresMention && message.guild && !message.content.match(myMention))) return;
 
 		if (await checkBlockeduser(message.author.id)) {
 			try {
@@ -1459,6 +1566,176 @@ client.on(Events.InteractionCreate, async (interaction) => {
 	const embedColor = Number(process.env.EMBED_COLOR)
 
 	switch (commandName) {
+		case "setchannelsettings":
+			log(LogLevel.Debug, `Attempting to run /setchannelsettings`)
+			const requires_mention = options.getBoolean("requires_mention");
+			const include_system_time = options.getBoolean("include_system_time");
+			const include_coordinated_universal_time = options.getBoolean("include_utc");
+			const include_username = options.getBoolean("include_username");
+			const include_user_id = options.getBoolean("include_user_id");
+			const include_user_nick = options.getBoolean("include_user_nick");
+			const include_channel_id = options.getBoolean("include_channel_id");
+			const include_channel_name = options.getBoolean("include_channel_name");
+			const include_guild_name = options.getBoolean("include_guild_name");
+
+			await interaction.deferReply();
+			await setChannelSettings(interaction.channel.id, requires_mention, include_system_time, include_coordinated_universal_time, include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name)
+
+			var responseEmbed = {
+				color: embedColor,
+				title: 'Current Channel Settings',
+				author: {
+					name: embedName,
+					url: embedLink,
+				},
+				description: `Channel settings as of right now for the channel <#${interaction.channel.id}>`,
+				thumbnail: {
+					url: embedThumb,
+				},
+				fields: [
+					{
+						name: 'Channel settings',
+						value: 'The following parameters are set for channel settings',
+					},
+					{
+						name: 'requires_mention',
+						value: `${(await readChannelSettings(interaction.channel.id)).requiresMention}`,
+						inline: true,
+					},
+					{
+						name: 'include_system_time',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_system_time}`,
+						inline: true,
+					},
+					{
+						name: 'include_coordinated_universal_time',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_coordinated_universal_time}`,
+						inline: true,
+					},
+					{
+						name: 'include_username',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_username}`,
+						inline: true,
+					},
+					{
+						name: 'include_user_id',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_user_id}`,
+						inline: true,
+					},
+					{
+						name: 'include_user_nick',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_user_nick}`,
+						inline: true,
+					},
+					{
+						name: 'include_channel_id',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_id}`,
+						inline: true,
+					},
+					{
+						name: 'include_channel_name',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_name}`,
+						inline: true,
+					},
+					{
+						name: 'include_guild_name',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_guild_name}`,
+						inline: true,
+					},
+				],
+				timestamp: new Date().toISOString(),
+				footer: {
+					text: 'Channel settings',
+					icon_url: embedIcon,
+				},
+			};
+
+			await interaction.editReply({
+				embeds: [responseEmbed],
+			})
+
+
+			log(LogLevel.Debug, `Finished responding to /setchannelsettings`)
+		break;
+		case "channelsettings":
+			log(LogLevel.Debug, `Attempting to run /channelsettings`)
+
+			await interaction.deferReply();
+			var responseEmbed = {
+				color: embedColor,
+				title: 'Current Channel Settings',
+				author: {
+					name: embedName,
+					url: embedLink,
+				},
+				description: `Channel settings as of right now for the channel <#${interaction.channel.id}>`,
+				thumbnail: {
+					url: embedThumb,
+				},
+				fields: [
+					{
+						name: 'Channel settings',
+						value: 'The following parameters are set for channel settings',
+					},
+					{
+						name: 'requires_mention',
+						value: `${(await readChannelSettings(interaction.channel.id)).requiresMention}`,
+						inline: true,
+					},
+					{
+						name: 'include_system_time',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_system_time}`,
+						inline: true,
+					},
+					{
+						name: 'include_coordinated_universal_time',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_coordinated_universal_time}`,
+						inline: true,
+					},
+					{
+						name: 'include_username',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_username}`,
+						inline: true,
+					},
+					{
+						name: 'include_user_id',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_user_id}`,
+						inline: true,
+					},
+					{
+						name: 'include_user_nick',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_user_nick}`,
+						inline: true,
+					},
+					{
+						name: 'include_channel_id',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_id}`,
+						inline: true,
+					},
+					{
+						name: 'include_channel_name',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_channel_name}`,
+						inline: true,
+					},
+					{
+						name: 'include_guild_name',
+						value: `${(await readChannelSettings(interaction.channel.id)).include_guild_name}`,
+						inline: true,
+					},
+				],
+				timestamp: new Date().toISOString(),
+				footer: {
+					text: 'Channel settings',
+					icon_url: embedIcon,
+				},
+			};
+
+			await interaction.editReply({
+				embeds: [responseEmbed],
+			})
+
+			log(LogLevel.Debug, `Finished responding to /channelsettings`)
+		break;
 		case "text2img":
 			log(LogLevel.Debug, `Attempting to run /text2img`)
 

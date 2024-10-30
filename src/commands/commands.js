@@ -22,7 +22,16 @@ import enablewelcome from "./enablewelcome.js";
 import disablewelcome from "./disablewelcome.js";
 import setwelcomesysmsg from "./setwelcomesysmsg.js";
 import support from "./support.js";
+import channelsettings from "./channelsettings.js"
+import setchannelsettings from  "./setchannelsettings.js"
 
-const commandsArray = [setsysmsg, text2img, setinitprompt, addinitprompt, addsysmsg, resetsysmsg, resetinitprompt, system, initprompt, help, model, ping, img2img, describe, upscale, addchannel, rmchannel, clear, respond, website, enablewelcome, disablewelcome, setwelcomesysmsg, support];
+const commandsArray = [
+    setsysmsg, text2img, setinitprompt, addinitprompt,
+    addsysmsg, resetsysmsg, resetinitprompt,
+    system, initprompt, help, model, ping, img2img,
+    describe, upscale, addchannel, rmchannel, clear,
+    respond, website, enablewelcome,
+    disablewelcome, setwelcomesysmsg,
+    support, channelsettings, setchannelsettings];
 
 export default commandsArray;
