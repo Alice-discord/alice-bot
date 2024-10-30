@@ -473,12 +473,19 @@ async function removeChannel(channelID) {
 		await mongoclient.connect();
   
 		//Check if data exsists and inserts if not
-		if(await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+		if(await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: true}, { limit: 1 }) == 1) //if it does 
 		{
-		  await mongoclient.db(db).collection(channelscollect).deleteOne({ channelID: `${channelID}`})
+		  await mongoclient.db(db).collection(channelscollect).updateOne({channelID: `${channelID}`},{$set:{usechannel: false}})
 		  await mongoclient.close();
 		  return `Removed channel (${channelID})`;
-		} 
+		}
+		if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: true}, { limit: 1 }) == 1 
+		&& !await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: false}, { limit: 1 }) == 1
+		&& await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1){
+		await mongoclient.db(db).collection(channelscollect).updateOne({channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, usechannel: false}})
+		await mongoclient.close();
+		return `Removed channel (${channelID}) (Migrated)`;
+		}
 	  
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
@@ -491,12 +498,24 @@ async function addChannel(channelID) {
 		await mongoclient.connect();
   
 		//Check if data exsists and inserts if not
-		if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+		if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1)
 		{
-		  await mongoclient.db(db).collection(channelscollect).insertOne({ channelID: `${channelID}`})
+		  await mongoclient.db(db).collection(channelscollect).insertOne({ channelID: `${channelID}`, usechannel: true})
 		  await mongoclient.close();
 		  return `Added (${channelID})`;
 		} 
+		if(await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: false}, { limit: 1 }) == 1){
+		  await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`, usechannel: false}, {$set:{ channelID: `${channelID}`, usechannel: true}})
+		  await mongoclient.close();
+		  return `Added (${channelID})`;
+		}	
+		if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: true}, { limit: 1 }) == 1 
+		&& !await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: false}, { limit: 1 }) == 1
+		&& await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1){
+		await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, usechannel: true}})
+		await mongoclient.close();
+		return `Added (${channelID}) (Migrated)`;
+		}
 	  
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
@@ -507,11 +526,18 @@ async function checkChannel(channelID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exsists
-		if(await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1) //if it does 
+		if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: true}, { limit: 1 }) == 1 
+		&& !await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: false}, { limit: 1 }) == 1
+		&& await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1){
+		await mongoclient.db(db).collection(channelscollect).updateOne({ channelID: `${channelID}`}, {$set:{ channelID: `${channelID}`, usechannel: true}})
+		await mongoclient.close();
+		return true;
+		}
+		if(await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`, usechannel: true}, { limit: 1 }) == 1) //if it does 
 		{
 		await mongoclient.close();
 		return true
-		} 
+		}
 		// Ensures that the client will close when you finish/error
 		await mongoclient.close();
 		return false
