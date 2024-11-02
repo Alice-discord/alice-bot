@@ -34,6 +34,7 @@ var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES.split(",");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const uri = `${process.env.MONGODB_URI}`;
 const db = `${process.env.MONGODB_DB}`;
+const logcollect = `${process.env.MONGODB_LOGGING_COLLECTION}`;
 const guildscollect = `${process.env.MONGO_GUILDS_COLLECTION}`;
 const channelscollect = `${process.env.MONGO_CHANNELS_COLLECTION}`;
 const userscollect = `${process.env.MONGO_USERS_COLLECTION}`;
@@ -66,7 +67,7 @@ async function setcontext(channelID, context) {
 
 	  if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1)
 		{
-		  await mongoclient.db(db).collection(contextcollect).insertOne({channelID: `${channelID}`, context: `${context}`})
+		  await mongoclient.db(db).collection(channelscollect).insertOne({channelID: `${channelID}`, context: `${context}`})
 		  await mongoclient.close();
 		} else {
 			await mongoclient.db(db).collection(channelscollect).updateOne({channelID: `${channelID}`}, {$set:{channelID: `${channelID}`, context: `${context}`}})
@@ -85,7 +86,7 @@ async function clearcontext(channelID) {
 	  await mongoclient.connect();
 	  if(!await mongoclient.db(db).collection(channelscollect).countDocuments({ channelID: `${channelID}`}, { limit: 1 }) == 1)
 		{
-		  await mongoclient.db(db).collection(contextcollect).insertOne({channelID: `${channelID}`, context: `${[0]}`})
+		  await mongoclient.db(db).collection(channelscollect).insertOne({channelID: `${channelID}`, context: `${[0]}`})
 		  await mongoclient.close();
 		  var clearcontextresponse = `Reset context`
 		} else {
@@ -213,10 +214,11 @@ async function readsystemmsg(channelID) {
   
 	  await mongoclient.close();
 	  return readsystemmessageresponse;
-	}
+	} else {
 	
 	await mongoclient.close();
 	return `${process.env.SYSTEM}`;
+	}
 }
   
 async function checkBlockeduser(userID) {
@@ -1169,6 +1171,15 @@ async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
 		   });
 	   return errorimage
 	 }}
+
+	 async function moderatorLog(thintolog) {
+		await mongoclient.connect();
+		
+		await mongoclient.db(db).collection(logcollect).insertOne({logdata: `${thintolog}`, date: `${new Date()}}`})
+		
+		await mongoclient.close();
+	}
+
 
 client.on(Events.MessageCreate, async message => {
 	let typing = false;
