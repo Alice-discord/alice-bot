@@ -57,7 +57,7 @@ async function testmongo() {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
-}; testmongo().catch(console.dir);
+};
 
 async function setcontext(channelID, context) {
 	try {
@@ -647,6 +647,37 @@ async function readChannelSettings(channelID){
 	
 }
 
+async function moderatorLog(thingtolog) {
+		// connect client
+	await mongoclient.connect();
+
+		// Define date and time etc..
+	let date = new Date()
+	.toLocaleDateString('en-us',
+		 { weekday: "long",
+			year: "numeric",
+			 month: "short",
+			  day: "numeric",
+			   hour: "numeric",
+				minute: "numeric" });
+
+	date = ({ localtime: date });
+	let logdata = Object.assign({}, thingtolog, date);
+
+
+	try{
+		// This stores "thingtolog" with the date and time of "thingtolog"
+	console.info(`Logged "${JSON.stringify(logdata)}"`);
+	await mongoclient.db(db).collection(logcollect).insertOne(logdata);
+	} catch (error) {console.info(`Error: \n${error}`)};
+
+	
+		// close client
+	await mongoclient.close();
+}
+
+moderatorLog({ startLog: `NPM STARTED`})
+
 async function checkForBlockedWordsUSER(user, uncheckedcontent) {
 var bound = '[^\\w\u00c0-\u02c1\u037f-\u0587\u1e00-\u1ffe]';
 var regex = new RegExp('(?:^|' + bound + ')(?:'
@@ -1171,14 +1202,6 @@ async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
 		   });
 	   return errorimage
 	 }}
-
-	 async function moderatorLog(thintolog) {
-		await mongoclient.connect();
-		
-		await mongoclient.db(db).collection(logcollect).insertOne({logdata: `${thintolog}`, date: `${new Date()}}`})
-		
-		await mongoclient.close();
-	}
 
 
 client.on(Events.MessageCreate, async message => {
