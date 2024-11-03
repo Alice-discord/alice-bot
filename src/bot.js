@@ -46,19 +46,6 @@ const mongoclient = new MongoClient(uri,  {
         }
 });
 
-async function testmongo() {
-	try {
-	  // Connect the client to the server
-	  await mongoclient.connect();
-	  // Send a ping to confirm a successful connection
-	  await mongoclient.db("admin").command({ ping: 1 });
-	  console.info("You successfully connected to MongoDB!");
-	} finally {
-	  // Ensures that the client will close when you finish/error
-	  await mongoclient.close();
-	}
-};
-
 async function setcontext(channelID, context) {
 	try {
 	  // Connect the client to the server
@@ -666,9 +653,13 @@ async function moderatorLog(thingtolog) {
 
 
 	try{
-		// This stores "thingtolog" with the date and time of "thingtolog"
-	console.info(`Logged "${JSON.stringify(logdata)}"`);
-	await mongoclient.db(db).collection(logcollect).insertOne(logdata);
+			// Attempt to ping db admin and log "You successfully connected to MongoDB!"
+		await mongoclient.db("admin").command({ ping: 1 });
+		console.info("You successfully connected to MongoDB!");
+
+			// This stores "logdata" object in database
+		console.info(`Logged "${JSON.stringify(logdata)}"`);
+		await mongoclient.db(db).collection(logcollect).insertOne(logdata);
 	} catch (error) {console.info(`Error: \n${error}`)};
 
 	
