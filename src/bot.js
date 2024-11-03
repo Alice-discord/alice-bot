@@ -46,6 +46,41 @@ const mongoclient = new MongoClient(uri,  {
         }
 });
 
+async function moderatorLog(thingtolog) {
+	// connect client
+await mongoclient.connect();
+
+	// Define date and time etc..
+let date = new Date()
+.toLocaleDateString('en-us',
+	 { weekday: "long",
+		year: "numeric",
+		 month: "short",
+		  day: "numeric",
+		   hour: "numeric",
+			minute: "numeric" });
+
+date = ({ localtime: date });
+let logdata = Object.assign({}, thingtolog, date);
+
+
+try{
+		// Attempt to ping db admin and log "You successfully connected to MongoDB!"
+	await mongoclient.db("admin").command({ ping: 1 });
+	console.info("You successfully connected to MongoDB!");
+
+		// This stores "logdata" object in database
+	console.info(`Logged "${JSON.stringify(logdata)}"`);
+	await mongoclient.db(db).collection(logcollect).insertOne(logdata);
+} catch (error) {console.info(`Error: \n${error}`)};
+
+
+	// close client
+await mongoclient.close();
+}
+
+moderatorLog({ startLog: `NPM STARTED`})
+
 async function setcontext(channelID, context) {
 	try {
 	  // Connect the client to the server
@@ -86,6 +121,7 @@ async function clearcontext(channelID) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
+	moderatorLog({ contextLog: `Cleared context for the channel`, channelID: channelID})
 	return clearcontextresponse
 }
 
@@ -133,6 +169,7 @@ async function setinit(userID, initalprompt) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
+	moderatorLog({ initLog: `Set init`, userID: `${userID}`, initialprompt: `${initalprompt}`})
 }
 
 async function readinitprompt(userID) {
@@ -179,6 +216,7 @@ async function setsystem(channelID, systemmessage) {
 	  // Ensures that the client will close when you finish/error
 	  await mongoclient.close();
 	}
+	moderatorLog({ systemLog: `Set system`, channelID: `${channelID}`, systemmessage: `${systemmessage}`})
 }
 
 async function readsystemmsg(channelID) {
@@ -296,10 +334,12 @@ async function addBlockeduser(userID, reason) {
 		{
 		  await mongoclient.db(db).collection(userscollect).insertOne({ userID: `${userID}`, isblocked: true, blockreason: `${reason}`})
 		  await mongoclient.close();
+		  moderatorLog({blockLog: `Add blocked user`, userID: `${userID}`, blockreason: `${reason}`})
 		  return `Blocked USER (${userID})`;
 		} else {
 			await mongoclient.db(db).collection(userscollect).updateOne({ userID: `${userID}`}, {$set:{ userID: `${userID}`, isblocked: true, blockreason: `${reason}`}})
 			await mongoclient.close();
+			moderatorLog({blockLog: `Add blocked user`, userID: `${userID}`, blockreason: `${reason}`})
 			return `Blocked USER (${userID})`;
 		}
 }
@@ -311,10 +351,12 @@ async function addBlockedguild(guildID, reason) {
 		{
 		  await mongoclient.db(db).collection(guildscollect).insertOne({ guildID: `${guildID}`, isblocked: true, blockreason: `${reason}`})
 		  await mongoclient.close();
+		  moderatorLog({blockLog: `Add blocked guild`, guildID: `${guildID}`, blockreason: `${reason}`})
 		  return `Blocked GUILD (${guildID})`;
 		} else {
 			await mongoclient.db(db).collection(guildscollect).updateOne({ guildID: `${guildID}`}, {$set:{ guildID: `${guildID}`, isblocked: true, blockreason: `${reason}`}})
 			await mongoclient.close();
+			moderatorLog({blockLog: `Add blocked guild`, guildID: `${guildID}`, blockreason: `${reason}`})
 			return `Blocked GUILD (${guildID})`;
 		}
 }
@@ -328,10 +370,12 @@ async function removeBlockeduser(userID) {
 			{
 			  await mongoclient.db(db).collection(userscollect).insertOne({ userID: `${userID}`, isblocked: false, blockreason: `UNBLOCKED`})
 			  await mongoclient.close();
+			  moderatorLog({blockLog: `Remove blocked user`, userID: `${userID}`})
 			  return `unblocked USER (${userID})`;
 			} else {
 				await mongoclient.db(db).collection(userscollect).updateOne({ userID: `${userID}`}, {$set:{ userID: `${userID}`, isblocked: false, blockreason: `UNBLOCKED`}})
 				await mongoclient.close();
+				moderatorLog({blockLog: `Remove blocked user`, userID: `${userID}`})
 				return `unblocked USER (${userID})`;
 			}
 }
@@ -345,13 +389,15 @@ async function removeBlockedguild(guildID) {
 			{
 			  await mongoclient.db(db).collection(guildscollect).insertOne({ guildID: `${guildID}`, isblocked: false, blockreason: `UNBLOCKED`})
 			  await mongoclient.close();
+			  moderatorLog({blockLog: `Remove blocked guild`, guildID: `${guildID}`})
 			  return `unblocked GUILD (${guildID})`;
 			} else {
 				await mongoclient.db(db).collection(guildscollect).updateOne({ guildID: `${guildID}`}, {$set:{ guildID: `${guildID}`, isblocked: false, blockreason: `UNBLOCKED`}})
 				await mongoclient.close();
+				moderatorLog({blockLog: `Remove blocked guild`, guildID: `${guildID}`})
 				return `unblocked GUILD (${guildID})`;
 			}
-		}
+} 
 
 async function setwelcomesystemmsg(guildID, systemmessage) {
 		try {
@@ -369,8 +415,9 @@ async function setwelcomesystemmsg(guildID, systemmessage) {
 		  // Ensures that the client will close when you finish/error
 		  await mongoclient.close();
 		}
+		moderatorLog({ systemLog: `Set welcome system message`, guildID: `${guildID}`, welcomesystemmessage: `${systemmessage}` })
 }
-	
+
 async function readwelcomesystemmsg(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
@@ -634,41 +681,6 @@ async function readChannelSettings(channelID){
 	
 }
 
-async function moderatorLog(thingtolog) {
-		// connect client
-	await mongoclient.connect();
-
-		// Define date and time etc..
-	let date = new Date()
-	.toLocaleDateString('en-us',
-		 { weekday: "long",
-			year: "numeric",
-			 month: "short",
-			  day: "numeric",
-			   hour: "numeric",
-				minute: "numeric" });
-
-	date = ({ localtime: date });
-	let logdata = Object.assign({}, thingtolog, date);
-
-
-	try{
-			// Attempt to ping db admin and log "You successfully connected to MongoDB!"
-		await mongoclient.db("admin").command({ ping: 1 });
-		console.info("You successfully connected to MongoDB!");
-
-			// This stores "logdata" object in database
-		console.info(`Logged "${JSON.stringify(logdata)}"`);
-		await mongoclient.db(db).collection(logcollect).insertOne(logdata);
-	} catch (error) {console.info(`Error: \n${error}`)};
-
-	
-		// close client
-	await mongoclient.close();
-}
-
-moderatorLog({ startLog: `NPM STARTED`})
-
 async function checkForBlockedWordsUSER(user, uncheckedcontent) {
 var bound = '[^\\w\u00c0-\u02c1\u037f-\u0587\u1e00-\u1ffe]';
 var regex = new RegExp('(?:^|' + bound + ')(?:'
@@ -703,7 +715,7 @@ async function checkForBlockedWordsGUILD(guild, uncheckedcontent) {
 			return true;
 		}
 		return false;
-	}
+}
 
 
 // Prevent uncaught Exception stops
@@ -711,7 +723,8 @@ process.on('uncaughtException', function (err) {
 	console.error(err);
 	console.error("uncaughtException...");
 	console.info("Attempting to continue listening for requests!")
-  });
+	moderatorLog({ crashLog: `NPM STARTED`})
+});
 
 dotenv.config();
 
@@ -856,7 +869,7 @@ client.once(Events.ClientReady, async () => {
 		log(LogLevel.Info, "Successfully reloaded application slash (/) commands.");
 		log(LogLevel.Info, `Started (Waiting for request)`);
 	}
-	});
+});
 
 const messages = {};
 
@@ -961,7 +974,7 @@ async function Embedding(input) {
 
 }
 
-async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
+async function LLMUserInputScopeFetch(userInput, user, channel, guild, returnObject) {
 
 	if(channel === null && guild === null){
 	log(LogLevel.Debug, `Message:\n${userInput}`)
@@ -1012,18 +1025,70 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 		var initialPrompt = ``
 		}
 
+		if (returnObject === `returnObject`) {
+		if(user != false){
+		var UserUsername = (await readChannelSettings(channel.id)).include_username ? `${user.username}` : ``;
+		var UserID = (await readChannelSettings(channel.id)).include_user_id ? `${user.id}` : ``;
+		} else {
+		var UserUsername = ``;
+		var UserID = ``;
+		}
+		if (channel != false){
+		var ChannelID = (await readChannelSettings(channel.id)).include_channel_id ? `${channel.id}` : ``;
+		} else {
+		var ChannelID = ``;
+		}
+		if (guild == null) {
+		if(user != false){
+		var ChannelName = (await readChannelSettings(channel.id)).include_channel_name ? `${user.tag}` : ``;
+		} else {
+		var ChannelName = ``;
+		}
+		var ServerName = ``;
+		}
+		else {
+		if (channel != false){
+		if (ChannelID != ``) ChannelID += `${channel.id}>`;
+		var ChannelName = (await readChannelSettings(channel.id)).include_channel_name ? `${channel.name}` : ``;
+		} else {
+			var ChannelID = ``;
+			var ChannelName = ``;	
+		}
+		if (guild != false){
+		var ServerName = (await readChannelSettings(channel.id)).include_guild_name ? `${guild.name}` : ``;
+		} else {
+		var ServerName = ``;
+		}
+		}
+		if(user != false){
+		var Nickname = (await readChannelSettings(channel.id)).include_user_nick ? `${user.displayName}` : ``;
+		var initialPrompt = `${await readinitprompt(user.id)}`
+		} else {
+		var Nickname = ``
+		var initialPrompt = ``
+		}}
+
 		if(!user && !channel && !guild) {
+			if (returnObject === `returnObject`) {
+			return {initialPrompt}
+			} else {
 			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}\nMessage: ${userInput}`)
 			return `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}\n\nMessage\n${userInput}`
+			}
 		}
 
+		if (returnObject === `returnObject`) {
+		return {initialPrompt, ServerName, ChannelName, ChannelID, UserUsername, Nickname, UserID}
+		} else {
 		log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage:\n${userInput}`)
 		return `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\n\nMessage:\n${userInput}`;
+		}
 	
 }
 
 async function responseLLM(userInput, user, channel, guild, system, contextboolean, image) {
 
+	let userIn = userInput
 	if(contextboolean){
 	try{
 	var context = await readcontext(channel.id)}
@@ -1080,6 +1145,11 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
 		await setcontext(channel.id, context)}catch{}
 	}
 
+	let llmLog = { LLM_Log: `A request was made to the LLM`, userInput: userIn, response: responseText }
+	let llmScopes = await LLMUserInputScopeFetch(userInput, user, channel, guild, `returnObject`)
+	let logdata = Object.assign({}, llmLog, llmScopes);
+
+	moderatorLog(logdata)
 	return responseText
 	
 }
@@ -1110,7 +1180,7 @@ async function DonwloadImage(message) {
 		}
 }
 
-async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
+async function sdapi(interaction, prompt, seed, denoising_strength, width, height, cfg_scale,
 	distilled_cfg_scale, sampler_name, steps, batch_count, batch_size, enhance_prompt,
 	 sdapiv1string, init_images, upscaling_resize, upscaler_1, upscaler_2, extras_upscaler_2_visibility) {
    
@@ -1140,7 +1210,9 @@ async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
 		   imageList: init_images,
 		   send_images: true,
 		   save_images: false,
-	   });return await images(responseFlux)}
+	   });
+	   moderatorLog({sdapiLog: `A request was made to sdapi for a upscaled image`, beforeimage: init_images, afterimage: responseFlux, userID: interaction.user.id, UserUsername: interaction.user.username, userDisplayname: interaction.user.displayName})
+	   return await images(responseFlux)}
    if(sdapiv1string == `img2img`){
    const responseFlux = await makeFluxRequest(
 		   `/sdapi/v1/${sdapiv1string}`,
@@ -1162,7 +1234,9 @@ async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
 			   enhance_prompt,
 			   send_images: true,
 			   save_images: false,
-		   });return await images(responseFlux)}
+		   });
+		   moderatorLog({sdapiLog: `A request was made to sdapi for a image to image image`, prompt, seed, denoising_strength, width, height, cfg_scale, distilled_cfg_scale, sampler_name, steps, num_inference_steps: steps, batch_count, batch_size, enhance_prompt, beforeimage: init_images, afterimage: responseFlux, userID: interaction.user.id, UserUsername: interaction.user.username, userDisplayname: interaction.user.displayName})
+		   return await images(responseFlux)}
    if(sdapiv1string == `txt2img`){
    const responseFlux = await makeFluxRequest(
 		   `/sdapi/v1/${sdapiv1string}`,
@@ -1183,7 +1257,9 @@ async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
 			   enhance_prompt,
 			   send_images: true,
 			   save_images: false,
-		   });return await images(responseFlux)}
+		   });
+		   moderatorLog({sdapiLog: `A request was made to sdapi for a text to image image`, prompt, seed, denoising_strength, width, height, cfg_scale, distilled_cfg_scale, sampler_name, steps, num_inference_steps: steps, batch_count, batch_size, enhance_prompt, afterimage: responseFlux, userID: interaction.user.id, UserUsername: interaction.user.username, userDisplayname: interaction.user.displayName})  
+		   return await images(responseFlux)}
 	   
 	 } catch (error) {
 	   log(LogLevel.Error, error)
@@ -1192,7 +1268,7 @@ async function sdapi(prompt, seed, denoising_strength, width, height, cfg_scale,
 		   responseEncoding: "base64",
 		   });
 	   return errorimage
-	 }}
+}}
 
 
 client.on(Events.MessageCreate, async message => {
@@ -1535,7 +1611,7 @@ if (welcomeuser) {
 				logError(error);
 			}
 		} catch (error) { logError(error); }
-		}  catch (error) { logError(error); } } } } );
+}  catch (error) { logError(error); } } } } );
 	
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -1599,7 +1675,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 	switch (commandName) {
 		case "text2img":
 			log(LogLevel.Debug, `Attempting to run /text2img`)
-
+			await interaction.deferReply();
 			if(interaction.guild){
 				if (await checkForBlockedWordsGUILD(interaction.guild, options.getString("prompt")) && await checkForBlockedWordsUSER(interaction.user, options.getString("prompt"))){
 					return;
@@ -1628,8 +1704,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				const enhance_prompt = (options.getBoolean("enhance_prompt") && true) ? "yes" : "no";
 				const denoising_strength = options.getNumber("denoising_strength") || 0.75;
 
-				await interaction.deferReply();
-				const images = await sdapi(prompt,seed,denoising_strength,width,height,cfg_scale,distilled_cfg_scale,sampler_name,steps,batch_count,batch_size,enhance_prompt,`txt2img`)
+				const images = await sdapi(interaction,prompt,seed,denoising_strength,width,height,cfg_scale,distilled_cfg_scale,sampler_name,steps,batch_count,batch_size,enhance_prompt,`txt2img`)
 			
 				var responseEmbed = {
 					color: embedColor,
@@ -1716,6 +1791,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			break;
 		case "img2img":
 			log(LogLevel.Debug, `Attempting to run /img2img`)
+			await interaction.deferReply();
 			try {
 				function randomnumbergenseed(max) {
 					return Math.floor(Math.random() * max);
@@ -1763,8 +1839,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				const distilled_cfg_scale = options.getNumber("distilled_cfg_scale") || 3.5; 
 				const enhance_prompt = (options.getBoolean("enhance_prompt") && true) ? "yes" : "no"; 
 
-				await interaction.deferReply();
-				const images = await sdapi(prompt,seed,denoising_strength,width,height,cfg_scale,distilled_cfg_scale,sampler_name,steps,batch_count,batch_size,enhance_prompt,`img2img`,init_images)
+				const images = await sdapi(interaction,prompt,seed,denoising_strength,width,height,cfg_scale,distilled_cfg_scale,sampler_name,steps,batch_count,batch_size,enhance_prompt,`img2img`,init_images)
 
 				var responseEmbed = {
 					color: embedColor,
@@ -2146,6 +2221,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 			break;
 		case "upscale":
 			log(LogLevel.Debug, `Attempting to run /upscale`)
+			await interaction.deferReply();
 			try {
 
 				const attachment = options.getAttachment("image")
@@ -2176,8 +2252,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 				const upscaler_2 = options.getString("upscaler_2") || "R-ESRGAN 4x+";     
 				const extras_upscaler_2_visibility = options.getNumber("upscaler_2_vis") || 1; 
 
-				await interaction.deferReply();
-				const images = await sdapi(0,0,0,0,0,0,0,0,0,0,0,0,`extra-batch-images`,init_images,upscaling_resize,upscaler_1,upscaler_2,extras_upscaler_2_visibility)
+				
+				const images = await sdapi(interaction,0,0,0,0,0,0,0,0,0,0,0,0,`extra-batch-images`,init_images,upscaling_resize,upscaler_1,upscaler_2,extras_upscaler_2_visibility)
 
 				var responseEmbed = {
 					color: embedColor,
