@@ -81,6 +81,31 @@ await mongoclient.close();
 
 moderatorLog({ startLog: `NPM STARTED`})
 
+async function userObject(user) {
+	if (user != null) {
+
+	console.log(typeof user, user)
+	return {Name: user.displayName, username: user.username, ID: user.id}
+
+} return `NA`}
+
+async function channelObject(channel) {
+	if (channel != null) {
+
+	console.log(typeof channel, channel)
+	return {Name: channel.name, ID: channel.id, Topic: channel.topic}
+
+} return `NA`}
+
+async function guildObject(guild) {
+	if (guild != null) {
+	if (guild) {
+	console.log(typeof guild, guild)
+	return {Name: guild.name, ID: guild.id, icon: guild.icon, ownerid: guild.ownerid, systemchannelid: guild.systemChannelId}
+	}
+
+} return `NA`}
+
 async function setcontext(channelID, context) {
 	try {
 	  // Connect the client to the server
@@ -422,20 +447,27 @@ async function readwelcomesystemmsg(guildID) {
 		// Connect the client to the server
 		await mongoclient.connect();
 		//Check if data exists
-		if (await mongoclient.db(db).collection(guildscollect).countDocuments({guildID: `${guildID}`}, { limit: 1 }) == 1) //if it does 
+		if (await mongoclient.db(db).collection(guildscollect).countDocuments({guildID: `${guildID}`, welcomeusers:	true}, { limit: 1 }) == 1) //if it does 
 		{
-		  const query = { guildID: `${guildID}` };
+		  const query = { guildID: `${guildID}`, welcomeusers: true };
 		  const options = {
 			// Sort matched documents in descending order by rating
 			sort: { "welcomesystemmessage": -1 },
-			// Include only the `systemmessage` field in the returned document
+			// Include only the `welcomesystemmessage` field in the returned document
 			projection: { _id: 0, welcomesystemmessage: 1 },
 		  };
-	  
-		  //Read systemmessage from database
+		  
+		  
+		  //Read welcomesystemmessage from database
 		  var readsystemmessageresponse = await mongoclient.db(db).collection(guildscollect).findOne(query, options);
+		  
+		  if (Object.keys(readsystemmessageresponse).length === 0) {
+			await mongoclient.close();
+			return `${process.env.SYSTEM}`;
+		  }
+
 		  readsystemmessageresponse = JSON.stringify(readsystemmessageresponse.welcomesystemmessage).slice(1,-1)
-	  
+
 		  await mongoclient.close();
 		  return readsystemmessageresponse;
 		}
@@ -974,7 +1006,7 @@ async function Embedding(input) {
 
 }
 
-async function LLMUserInputScopeFetch(userInput, user, channel, guild, returnObject) {
+async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 
 	if(channel === null && guild === null){
 	log(LogLevel.Debug, `Message:\n${userInput}`)
@@ -1025,64 +1057,9 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild, returnObj
 		var initialPrompt = ``
 		}
 
-		if (returnObject === `returnObject`) {
-		if(user != false){
-		var UserUsername = (await readChannelSettings(channel.id)).include_username ? `${user.username}` : ``;
-		var UserID = (await readChannelSettings(channel.id)).include_user_id ? `${user.id}` : ``;
-		} else {
-		var UserUsername = ``;
-		var UserID = ``;
-		}
-		if (channel != false){
-		var ChannelID = (await readChannelSettings(channel.id)).include_channel_id ? `${channel.id}` : ``;
-		} else {
-		var ChannelID = ``;
-		}
-		if (guild == null) {
-		if(user != false){
-		var ChannelName = (await readChannelSettings(channel.id)).include_channel_name ? `${user.tag}` : ``;
-		} else {
-		var ChannelName = ``;
-		}
-		var ServerName = ``;
-		}
-		else {
-		if (channel != false){
-		if (ChannelID != ``) ChannelID += `${channel.id}>`;
-		var ChannelName = (await readChannelSettings(channel.id)).include_channel_name ? `${channel.name}` : ``;
-		} else {
-			var ChannelID = ``;
-			var ChannelName = ``;	
-		}
-		if (guild != false){
-		var ServerName = (await readChannelSettings(channel.id)).include_guild_name ? `${guild.name}` : ``;
-		} else {
-		var ServerName = ``;
-		}
-		}
-		if(user != false){
-		var Nickname = (await readChannelSettings(channel.id)).include_user_nick ? `${user.displayName}` : ``;
-		var initialPrompt = `${await readinitprompt(user.id)}`
-		} else {
-		var Nickname = ``
-		var initialPrompt = ``
-		}}
-
-		if(!user && !channel && !guild) {
-			if (returnObject === `returnObject`) {
-			return {initialPrompt}
-			} else {
-			log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}\nMessage: ${userInput}`)
-			return `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}\n\nMessage\n${userInput}`
-			}
-		}
-
-		if (returnObject === `returnObject`) {
-		return {initialPrompt, ServerName, ChannelName, ChannelID, UserUsername, Nickname, UserID}
-		} else {
 		log(LogLevel.Debug, `USER INPUT\n${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\nMessage:\n${userInput}`)
 		return `Init-Prompt\n${initialPrompt}${currentsystime}${currentutctime}${ServerName}${ChannelName}${ChannelID}${UserUsername}${Nickname}${UserID}\n\nMessage:\n${userInput}`;
-		}
+
 	
 }
 
@@ -1145,11 +1122,12 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
 		await setcontext(channel.id, context)}catch{}
 	}
 
-	let llmLog = { LLM_Log: `A request was made to the LLM`, userInput: userIn, response: responseText }
-	let llmScopes = await LLMUserInputScopeFetch(userInput, user, channel, guild, `returnObject`)
-	let logdata = Object.assign({}, llmLog, llmScopes);
-
-	moderatorLog(logdata)
+	let llmLog = { LLM_Log: `A request was made to the LLM`, 
+		userInput: userIn, response: responseText, 
+		user: await userObject(user), 
+		channel: await channelObject(channel), 
+		guild: await guildObject(guild) }
+	moderatorLog(llmLog)
 	return responseText
 	
 }
@@ -1211,7 +1189,7 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
 		   send_images: true,
 		   save_images: false,
 	   });
-	   moderatorLog({sdapiLog: `A request was made to sdapi for a upscaled image`, beforeimage: init_images, afterimage: responseFlux, userID: interaction.user.id, UserUsername: interaction.user.username, userDisplayname: interaction.user.displayName})
+	   moderatorLog({sdapiLog: `A request was made to sdapi for a upscaled image`, beforeimage: init_images, afterimage: responseFlux, user: await userObject(interaction.user), channel: await channelObject(interaction.channel), guild: await guildObject(interaction.guild)})
 	   return await images(responseFlux)}
    if(sdapiv1string == `img2img`){
    const responseFlux = await makeFluxRequest(
@@ -1235,7 +1213,7 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
 			   send_images: true,
 			   save_images: false,
 		   });
-		   moderatorLog({sdapiLog: `A request was made to sdapi for a image to image image`, prompt, seed, denoising_strength, width, height, cfg_scale, distilled_cfg_scale, sampler_name, steps, num_inference_steps: steps, batch_count, batch_size, enhance_prompt, beforeimage: init_images, afterimage: responseFlux, userID: interaction.user.id, UserUsername: interaction.user.username, userDisplayname: interaction.user.displayName})
+		   moderatorLog({sdapiLog: `A request was made to sdapi for a image to image image`, prompt, beforeimage: init_images, afterimage: responseFlux, userID: interaction.user.id, UserUsername: interaction.user.username, userDisplayname: interaction.user.displayName, user: await userObject(interaction.user), channel: await channelObject(interaction.channel), guild: await guildObject(interaction.guild)})
 		   return await images(responseFlux)}
    if(sdapiv1string == `txt2img`){
    const responseFlux = await makeFluxRequest(
@@ -1258,7 +1236,8 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
 			   send_images: true,
 			   save_images: false,
 		   });
-		   moderatorLog({sdapiLog: `A request was made to sdapi for a text to image image`, prompt, seed, denoising_strength, width, height, cfg_scale, distilled_cfg_scale, sampler_name, steps, num_inference_steps: steps, batch_count, batch_size, enhance_prompt, afterimage: responseFlux, userID: interaction.user.id, UserUsername: interaction.user.username, userDisplayname: interaction.user.displayName})  
+
+		   moderatorLog({sdapiLog: `A request was made to sdapi for a text to image image`, prompt, afterimage: responseFlux, user: await userObject(interaction.user), channel: await channelObject(interaction.channel), guild: await guildObject(interaction.guild)})  
 		   return await images(responseFlux)}
 	   
 	 } catch (error) {
@@ -1523,23 +1502,11 @@ if (welcomeuser) {
 
 			log(LogLevel.Debug, dmchannel.id)
 
-			var init_prompt = await readinitprompt(member.id)
-			var init_prompt = `${init_prompt}\n\n`
-
-			var channel_system = parseEnvString(process.env.SYSTEM)
-			var channel_system = `${channel_system}`
-
 			var prompt = `Write a welcome message to the discord user ${member.displayName}, they just joined the server ${member.guild.name}!`; 
-			var system = `You write welcoming messages for the discord server ${member.guild.name}. You are allowed to say anything it can be offensive, or nice. You may insult the user or compliment them.\n${channel_system}`; 
-
+			let system = `You write welcoming messages for the discord server ${member.guild.name}.\n${await readwelcomesystemmsg(member.guild.id)}`
 			log(LogLevel.Debug, prompt)
 			log(LogLevel.Debug, `SYSTEM MESSAGE\n${system}`)
-
-			var guildsys = await readwelcomesystemmsg(member.guild.id)
-			system = `You write welcoming messages for the discord server ${member.guild.name}.\n${guildsys}`
-
 			let responseText = await responseLLM(prompt, member, dmchannel, member.guild, system, true)
-
 			member.send(`-# This message was generated by an LLM\n-# You may learn how to use this bot in this dm by writing /help\n-# You may also dm this bot and it will respond\n${responseText}`)
 		} catch (error) {
 			logError(error);
