@@ -3673,14 +3673,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
                                     name: '/rmchannel',
                                     value: `Allows you to remove channels the bot will respond to <@${client.user.id}>`,
                                 },
-                                {
-                                    name: '/enablewelcome',
-                                    value: `Enables the welcome message when new users join the guild!`,
-                                },
-                                {
-                                    name: '/disablewelcome ',
-                                    value: `Disables the welcome message when new users join the guild!`,
-                                },
 
                             ],
                             timestamp: new Date().toISOString(),
@@ -3961,193 +3953,61 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     }
                     log(LogLevel.Debug, `Finished responding to /website`)
                     break;
-                case "enablewelcome":
-                    log(LogLevel.Debug, `Attempting to run /enablewelcome`)
-                    if (!await readwelcomesystemmsgboolean(interaction.guild.id)) {
-                        try {
-                            await interaction.deferReply();
+                case "togglewelcome":
+                    log(LogLevel.Debug, `Attempting to run /togglewelcome`)
 
-                            try {
-                                setwelcomesystemmsgboolean(interaction.guild.id, true)
-                            } catch (error) {
-                                logError(error)
-                            }
+					await interaction.deferReply();
+					if (getBoolean(await readwelcomesystemmsgboolean(interaction.guild.id))) {
+					
+					await setwelcomesystemmsgboolean(interaction.guild.id, false)			
+						
+					var	responseEmbed = {
+							color: embedColor,
+							title: 'Disabled welcome message to new members!',
+							author: {
+								name: embedName,
+								url: embedLink,
+							},
+							description: `You are Disabling the welcome message to new members that join this Guild!`,
+							thumbnail: {
+								url: embedThumb,
+							},
+							timestamp: new Date().toISOString(),
+							footer: {
+								text: `Toggle Welcome`,
+								icon_url: embedIcon,
+							},
+						};
+					}
 
-                            var responseEmbed = {
-                                color: embedColor,
-                                title: 'Enabling welcome message to members!',
-                                author: {
-                                    name: embedName,
-                                    url: embedLink,
-                                },
-                                description: `You are Enabling the welcome message to new members that join this Guild!`,
-                                thumbnail: {
-                                    url: embedThumb,
-                                },
-                                timestamp: new Date().toISOString(),
-                                footer: {
-                                    text: `Enabled welcome`,
-                                    icon_url: embedIcon,
-                                },
-                            };
+					else {
+					
+					await setwelcomesystemmsgboolean(interaction.guild.id, true)			
+						
+					var	responseEmbed = {
+							color: embedColor,
+							title: 'Enabled welcome message to new members!',
+							author: {
+								name: embedName,
+								url: embedLink,
+							},
+							description: `You are Enabling the welcome message to new members that join this Guild!`,
+							thumbnail: {
+								url: embedThumb,
+							},
+							timestamp: new Date().toISOString(),
+							footer: {
+								text: `Toggle Welcome`,
+								icon_url: embedIcon,
+							},
+						};
+					}
 
-                            await interaction.editReply({
-                                embeds: [responseEmbed],
-                            })
-                        } catch (error) {
-                            logError(error);
-                            try {
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch {
-                                try {
-                                    await interaction.deferReply();
-                                    await interaction.editReply({
-                                        content: `Error, please check the console | OVERRIDE: ${error}`
-                                    });
-                                } catch (error) {
-                                    logError(error);
-                                }
-                            }
-                        }
-                    } else {
-                        try {
-                            await interaction.deferReply();
-                            var responseEmbed = {
-                                color: embedColor,
-                                title: 'Enabling welcome message to members!',
-                                author: {
-                                    name: embedName,
-                                    url: embedLink,
-                                },
-                                description: `You cannot enable welcome messages as they are already enabled!`,
-                                thumbnail: {
-                                    url: embedThumb,
-                                },
-                                timestamp: new Date().toISOString(),
-                                footer: {
-                                    text: `Enabled welcome`,
-                                    icon_url: embedIcon,
-                                },
-                            };
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
 
-                            await interaction.editReply({
-                                embeds: [responseEmbed],
-                            })
-                        } catch (error) {
-                            logError(error);
-                            try {
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch {
-                                try {
-                                    await interaction.deferReply();
-                                    await interaction.editReply({
-                                        content: `Error, please check the console | OVERRIDE: ${error}`
-                                    });
-                                } catch (error) {
-                                    logError(error);
-                                }
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /enablewelcome`)
-                    break;
-                case "disablewelcome":
-                    log(LogLevel.Debug, `Attempting to run /disablewelcome`)
-                    if (await readwelcomesystemmsgboolean(interaction.guild.id)) {
-                        try {
-                            await interaction.deferReply();
-
-                            try {
-                                setwelcomesystemmsgboolean(interaction.guild.id, false)
-                            } catch (error) {
-                                logError(error)
-                            }
-
-                            var responseEmbed = {
-                                color: embedColor,
-                                title: 'Disabling welcome message to members!',
-                                author: {
-                                    name: embedName,
-                                    url: embedLink,
-                                },
-                                description: `You are Disabling the welcome message to new members that join this Guild!`,
-                                thumbnail: {
-                                    url: embedThumb,
-                                },
-                                timestamp: new Date().toISOString(),
-                                footer: {
-                                    text: `Disabled welcome`,
-                                    icon_url: embedIcon,
-                                },
-                            };
-
-                            await interaction.editReply({
-                                embeds: [responseEmbed],
-                            })
-                        } catch (error) {
-                            logError(error);
-                            try {
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch {
-                                try {
-                                    await interaction.deferReply();
-                                    await interaction.editReply({
-                                        content: `Error, please check the console | OVERRIDE: ${error}`
-                                    });
-                                } catch (error) {
-                                    logError(error);
-                                }
-                            }
-                        }
-                    } else {
-                        try {
-                            await interaction.deferReply();
-                            var responseEmbed = {
-                                color: embedColor,
-                                title: 'Disabling welcome message to members!',
-                                author: {
-                                    name: embedName,
-                                    url: embedLink,
-                                },
-                                description: `You are cannot disable welcome messages as they are already disabled for this Guild!`,
-                                thumbnail: {
-                                    url: embedThumb,
-                                },
-                                timestamp: new Date().toISOString(),
-                                footer: {
-                                    text: `Disabled welcome`,
-                                    icon_url: embedIcon,
-                                },
-                            };
-
-                            await interaction.editReply({
-                                embeds: [responseEmbed],
-                            })
-                        } catch (error) {
-                            logError(error);
-                            try {
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch {
-                                try {
-                                    await interaction.deferReply();
-                                    await interaction.editReply({
-                                        content: `Error, please check the console | OVERRIDE: ${error}`
-                                    });
-                                } catch (error) {
-                                    logError(error);
-                                }
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /disablewelcome`)
+                    log(LogLevel.Debug, `Finished responding to /togglewelcome`)
                     break;
                 case "setwelcomesysmsg":
                     log(LogLevel.Debug, `Attempting to run /setwelcomesysmsg`)

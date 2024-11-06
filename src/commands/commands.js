@@ -18,8 +18,7 @@ import rmchannel from "./rmchannel.js";
 import clear from "./clear.js";
 import respond from "./respond.js";
 import website from "./website.js";
-import enablewelcome from "./enablewelcome.js";
-import disablewelcome from "./disablewelcome.js";
+import togglewelcome from "./togglewelcome.js";
 import setwelcomesysmsg from "./setwelcomesysmsg.js";
 import support from "./support.js";
 import setchannelsettings from  "./setchannelsettings.js"
@@ -29,8 +28,8 @@ const commandsArray = [
     addsysmsg, resetsysmsg, resetinitprompt,
     system, initprompt, help, model, ping, img2img,
     describe, upscale, addchannel, rmchannel, clear,
-    respond, website, enablewelcome,
-    disablewelcome, setwelcomesysmsg,
+    respond, website, togglewelcome,
+    setwelcomesysmsg,
     support, setchannelsettings];
 
 export default commandsArray;
