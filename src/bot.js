@@ -41,6 +41,11 @@ var model = process.env.MODEL;
 var imagemodel = process.env.IMAGEMODEL;
 var embedmodel = process.env.EMBEDDINGMODEL;
 var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES.split(",");
+const botownerid = `${process.env.OWNER_ID}`;
+const Repository = `${process.env.REPO}`;
+const website = `${process.env.WEBSITE}`;
+const supportServer = `${process.env.SUPPORT_SERVER}`;
+const TOPGG = `${process.env.TOPGG}`;
 
 // Mongo enviorment variables
 const {
@@ -1252,7 +1257,7 @@ async function checkForBlockedWordsUSER(user, uncheckedcontent) {
         ')(?=' + bound + '|$)', 'i');
     if (regex.test(uncheckedcontent)) {
         try {
-            await client.users.cache.get(`${user.id}`).send(`You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`);
+            await client.users.cache.get(`${user.id}`).send(`You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our ${supportServer}](https://discord.com/invite/RwZd3T8vde)`);
         } finally {
             var blockreason = `You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen`
             await addBlockeduser(user.id, blockreason);
@@ -1274,7 +1279,7 @@ async function checkForBlockedWordsGUILD(guild, uncheckedcontent) {
             c.permissionsFor(guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
         )
         await channelG.sendTyping();
-        await channelG.send(`The guild has been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`);
+        await channelG.send(`The guild has been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen if you think this may be a mistake please [file an issue in our support Server](${supportServer})`);
         var blockreason = `You have been automatically blocked by stuff-and-things for using a blocked phrase \`${uncheckedcontent}\` in response gen`
         await addBlockedguild(guild.id, blockreason);
         guild.leave();
@@ -1446,7 +1451,7 @@ client.once(Events.ClientReady, async () => {
         activities: [{
             name: `/help and, @${client.user.username}`,
             type: ActivityType.Listening,
-            url: "https://ethmangameon.github.io/alice-app/home.html"
+            url: `${website}`
         }],
         status: "online"
     });
@@ -1880,7 +1885,7 @@ client.on(Events.MessageCreate, async message => {
 
         if (await checkBlockeduser(message.author.id)) {
             try {
-                let blockedUsermsg = `You (${message.author.username} - ${message.author.displayName} - ${message.author.id} - <@${message.author.id}>) have been blocked by stuff-and-things for the following reason ${await checkBlockeduserreason(message.author.id)} if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+                let blockedUsermsg = `You (${message.author.username} - ${message.author.displayName} - ${message.author.id} - <@${message.author.id}>) have been blocked by stuff-and-things for the following reason ${await checkBlockeduserreason(message.author.id)} if you think this may be a mistake please [file an issue in our support Server](${supportServer})`
                 await message.reply(blockedUsermsg);
                 log(LogLevel.Debug, `Sent message "${blockedUsermsg}"`)
             } catch (error) {
@@ -1902,7 +1907,7 @@ client.on(Events.MessageCreate, async message => {
                         c.type === ChannelType.GuildText &&
                         c.permissionsFor(message.guild.members.me).has(([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel]))
                     )
-                    let responseLeavemsg = `This guild (${message.guild.name} - ${message.guild.id}) has been blocked by stuff-and-things for the following reason ${await checkBlockedguildreason(message.guild.id)} if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+                    let responseLeavemsg = `This guild (${message.guild.name} - ${message.guild.id}) has been blocked by stuff-and-things for the following reason ${await checkBlockedguildreason(message.guild.id)} if you think this may be a mistake please [file an issue in our support Server](${supportServer})`
                     await channelG.send(responseLeavemsg);
                     log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
                 } catch (error) {
@@ -2149,7 +2154,7 @@ client.on('guildCreate', async guild => {
 
                 await channelG.sendTyping();
 
-                let responseLeavemsg = `This guild (${guild.name} - ${guild.id}) has been blocked by stuff-and-things for the following reason \`${await checkBlockedguildreason(guild.id)}\` if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+                let responseLeavemsg = `This guild (${guild.name} - ${guild.id}) has been blocked by stuff-and-things for the following reason \`${await checkBlockedguildreason(guild.id)}\` if you think this may be a mistake please [file an issue in our support Server](${supportServer})`
                 await channelG.send(responseLeavemsg);
                 log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
             } catch (error) {
@@ -2186,7 +2191,7 @@ client.on('guildCreate', async guild => {
                     let responseText = await responseLLM(prompt, false, channelG, guild, system, true)
 
                     try {
-                        await channelG.send(`# Hello my name is ${client.user.username}, type \`/help\` to view my commands.\n## In order to enable my mention and reply features in a channel please use \`/addchannel\` (I have added myself to this channel) then use <@${client.user.id}> to mention me with your message or reply to an exsisting message!\n### If you have any issues, complaints, or suggestions please contact <@635136583078772754> or you can go to [website for alice](<https://ethmangameon.github.io/alice-app/index.html>) we also have an [support server](<https://discord.gg/RwZd3T8vde>) and lastly we have a [GitHub repo for the bot.](<https://github.com/Ethmangameon/alice-bot>)\n ### Please remember my commands work in any channel if you wish to change this please change your servers interaction permissions, also note you can add me to your profile if and when you want to use my commands anywhere on discord!\n-# This response is generated by AI\n${responseText}`)
+                        await channelG.send(`# Hello my name is ${client.user.username}, type \`/help\` to view my commands.\n## In order to enable my mention and reply features in a channel please use \`/addchannel\` (I have added myself to this channel) then use <@${client.user.id}> to mention me with your message or reply to an exsisting message!\n### If you have any issues, complaints, or suggestions please contact <@${botownerid}> or you can go to [website for ${client.user.username}](<${website}>) we also have an [support Server](<${supportServer}>) and lastly we have a [GitHub repo for the bot.](<${Repository}>)\n ### Please remember my commands work in any channel if you wish to change this please change your servers interaction permissions, also note you can add me to your profile if and when you want to use my commands anywhere on discord!\n-# This response is generated by AI\n${responseText}`)
                     } catch (error) {
                         logError(error);
                     }
@@ -2226,7 +2231,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
             await channelG.sendTyping();
 
-            let responseLeavemsg = `This guild (${interaction.guild.name} - ${interaction.guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+            let responseLeavemsg = `This guild (${interaction.guild.name} - ${interaction.guild.id}) has been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](${supportServer})`
             await channelG.send(responseLeavemsg);
             log(LogLevel.Debug, `Sent message "${responseLeavemsg}"`)
         } catch (error) {
@@ -2246,7 +2251,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
             try {
 
-                let blockedUsermsg = `You (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} - <@${interaction.user.id}>) have been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](https://discord.com/invite/RwZd3T8vde)`
+                let blockedUsermsg = `You (${interaction.user.username} - ${interaction.user.displayName} - ${interaction.user.id} - <@${interaction.user.id}>) have been blocked by stuff-and-things if you think this may be a mistake please [file an issue in our support server](${supportServer})`
                 await interaction.deferReply();
                 await interaction.editReply({
                     content: blockedUsermsg
@@ -3117,12 +3122,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						
 					var	responseEmbed = {
 							color: embedColor,
-							title: 'Disabled Messages from Alice in this channel!',
+							title: 'Disabled Messages from the bot in this channel!',
 							author: {
 								name: embedName,
 								url: embedLink,
 							},
-							description: `You are Dropping the channel from alice's list!`,
+							description: `You are Dropping the channel from the bot's list!`,
 							thumbnail: {
 								url: embedThumb,
 							},
@@ -3138,12 +3143,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						
 					var	responseEmbed = {
 							color: embedColor,
-							title: 'Enabled Messages from Alice in this channel!',
+							title: 'Enabled Messages from the bot in this channel!',
 							author: {
 								name: embedName,
 								url: embedLink,
 							},
-							description: `You are Adding this channel to alice's list!`,
+							description: `You are Adding this channel to the bot's list!`,
 							thumbnail: {
 								url: embedThumb,
 							},
@@ -3508,7 +3513,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                                 name: embedName,
                                 url: embedLink,
                             },
-                            description: `My [website link is here](https://ethmangameon.github.io/alice-app/)\nAlso consider voting/reviewing (for) me on [top.gg](https://top.gg/bot/1292925303211163738)`,
+                            description: `My [website link is here](${website})\nAlso consider voting/reviewing (for) me on [top.gg](${TOPGG})`,
                             thumbnail: {
                                 url: embedThumb,
                             },
@@ -3671,7 +3676,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                                 name: embedName,
                                 url: embedLink,
                             },
-                            description: `My [support discord server is here!](https://discord.com/invite/RwZd3T8vde)`,
+                            description: `My [support discord server is here!](${supportServer})`,
                             thumbnail: {
                                 url: embedThumb,
                             },
