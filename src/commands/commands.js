@@ -1,10 +1,7 @@
 import text2img from "./text2img.js";
 import img2img from "./img2img.js";
-import setsysmsg from "./setsysmsg.js";
 import setinitprompt from "./setinitprompt.js";
-import addsysmsg from "./addsysmsg.js";
 import addinitprompt from "./addinitprompt.js";
-import resetsysmsg from "./resetsysmsg.js";
 import resetinitprompt from "./resetinitprompt.js";
 import system from "./system.js";
 import initprompt from "./initprompt.js";
@@ -23,9 +20,9 @@ import support from "./support.js";
 import setchannelsettings from  "./setchannelsettings.js"
 
 const commandsArray = [
-    setsysmsg, text2img, setinitprompt, addinitprompt,
-    addsysmsg, resetsysmsg, resetinitprompt,
-    system, initprompt, help, model, ping, img2img,
+    text2img, img2img,
+    setinitprompt, addinitprompt, resetinitprompt,
+    system, initprompt, help, model, ping,
     describe, upscale, togglechannel, clear,
     respond, website, togglewelcome,
     setwelcomesysmsg,

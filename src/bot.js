@@ -376,11 +376,6 @@ async function setsystem(channelID, systemmessage) {
         // Ensures that the client will close when you finish/error
         await mongoclient.close();
     }
-    moderatorLog({
-        systemLog: `Set system`,
-        channelID: `${channelID}`,
-        systemmessage: `${systemmessage}`
-    })
 }
 
 // Read the stored system message for the channel in the db
@@ -2987,70 +2982,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     }
                     log(LogLevel.Debug, `Finished responding to /upscale`)
                     break;
-                case "setsysmsg":
-                    log(LogLevel.Debug, `Attempting to run /setsysmsg`)
-                    try {
-
-                        if (interaction.guild) {
-                            if (await checkForBlockedWordsGUILD(interaction.guild, options.getString("sysmsg")) && await checkForBlockedWordsUSER(interaction.user, options.getString("sysmsg"))) {
-                                return;
-                            }
-                        } else {
-                            if (await checkForBlockedWordsUSER(interaction.user, options.getString("sysmsg"))) {
-                                return;
-                            }
-                        }
-
-                        const userdefinedsystemmessage = options.getString("sysmsg");
-                        setsystem(interaction.channel.id, userdefinedsystemmessage)
-                        var sysmsgresponse = `"${userdefinedsystemmessage}"`
-
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Set the channel system message',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You have set the channel system message',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'The channel system message is now',
-                                value: `${sysmsgresponse}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Set system`,
-                                icon_url: embedIcon,
-                            },
-                        };
-
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
-
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /setsysmsg`)
-                    break;
                 case "setinitprompt":
                     log(LogLevel.Debug, `Attempting to run /setinitprompt`)
                     try {
@@ -3114,82 +3045,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
                         }
                     }
                     log(LogLevel.Debug, `Finished responding to /setinitprompt`)
-                    break;
-                case "addsysmsg":
-                    log(LogLevel.Debug, `Attempting to run /addsysmsg`)
-                    try {
-                        let flag = false;
-                        var BLOCKED_PHRASES = process.env.BLOCKED_PHRASES;
-                        var BLOCKED_PHRASES = BLOCKED_PHRASES.split(",");
-                        for (const item of BLOCKED_PHRASES) {
-                            if (options.getString("appendsysmsg").includes(item)) {
-
-                                if (interaction.guild) {
-                                    if (await checkForBlockedWordsGUILD(interaction.guild, options.getString("appendsysmsg")) && await checkForBlockedWordsUSER(interaction.user, options.getString("initprompt"))) {
-                                        return;
-                                    }
-                                } else {
-                                    if (await checkForBlockedWordsUSER(interaction.user, options.getString("appendsysmsg"))) {
-                                        return;
-                                    }
-                                }
-
-                                //This is black magic but this works to prevent generation!!
-                                return flag = true;
-                            }
-                        }
-
-                        const userdefinedappendsystemmessage = options.getString("appendsysmsg");
-                        var preappenededSYSmsg = await readsystemmsg(interaction.channel.id)
-                        await setsystem(interaction.channel.id, `${preappenededSYSmsg} ${userdefinedappendsystemmessage}`)
-                        var appenededSYSmsg = await readsystemmsg(interaction.channel.id)
-                        var sysmsgresponse = `"${appenededSYSmsg}"`
-
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Add to the current channel system message',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You have added to the channel system message',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'The channel system message is now',
-                                value: `${sysmsgresponse}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Added to system`,
-                                icon_url: embedIcon,
-                            },
-                        };
-
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
-
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /addsysmsg`)
                     break;
                 case "addinitprompt":
                     log(LogLevel.Debug, `Attempting to run /addinitprompt`)
@@ -3257,58 +3112,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     }
                     log(LogLevel.Debug, `Finished responding to /addinitprompt`)
                     break;
-                case "resetsysmsg":
-                    log(LogLevel.Debug, `Attempting to run /resetsysmsg`)
-                    try {
-                        setsystem(interaction.channel.id, parseEnvString(process.env.SYSTEM))
-                        var sysmsgresponse = `"${parseEnvString(process.env.SYSTEM)}"`
-
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Reset the current channel system message',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You reset the channel system message',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'The channel system message is now',
-                                value: `${sysmsgresponse}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Reset system`,
-                                icon_url: embedIcon,
-                            },
-                        };
-
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
-
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /resetsysmsg`)
-                    break;
                 case "resetinitprompt":
                     log(LogLevel.Debug, `Attempting to run /resetinitprompt`)
                     try {
@@ -3362,56 +3165,76 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     log(LogLevel.Debug, `Finished responding to /resetinitprompt`)
                     break;
                 case "system":
-                    log(LogLevel.Debug, `Attempting to run /system`)
-                    try {
-                        let readsystem = await readsystemmsg(interaction.channel.id)
-                        let systemsend = `"${readsystem}"`
+                    log(LogLevel.Debug, `Attempting to run /system`);
 
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Check the system message',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You are checking the current channel system message',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'The channel system message is',
-                                value: `${systemsend}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Checked system`,
-                                icon_url: embedIcon,
-                            },
-                        };
+					await interaction.deferReply();
+					let setsystemmsg = options.getString("setsystem") || null;
+                    let addsystemmsg = options.getString("addsystem") || null;
+                    let resetsystemmsg = options.getBoolean("resetsystem") || false;
 
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
+					if (interaction.guild) {
 
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /system`)
+						if (setsystemmsg != null) {
+						if (await checkForBlockedWordsGUILD(interaction.guild, setsystemmsg) && await checkForBlockedWordsUSER(interaction.user, setsystemmsg)) {
+							return;
+							}
+						}
+						if (addsystemmsg != null) {
+							if (await checkForBlockedWordsGUILD(interaction.guild, addsystemmsg) && await checkForBlockedWordsUSER(interaction.user, addsystemmsg)) {
+							return;
+							}
+						}
+					} 
+					
+					else {
+
+					if (setsystemmsg != null) {
+						if (await checkForBlockedWordsUSER(interaction.user, setsystemmsg)) {
+							return;
+							}
+						}
+						if (addsystemmsg != null) {
+							if (await checkForBlockedWordsUSER(interaction.user, addsystemmsg)) {
+							return;
+							}
+						}
+					}
+
+					if (setsystemmsg != null) {
+					await setsystem(interaction.channel.id,setsystemmsg);
+					};
+
+					if (addsystemmsg != null) {
+					await setsystem(interaction.channel.id,`${await readsystemmsg(interaction.channel.id)} ${addsystemmsg}`);
+					};
+
+					if (resetsystemmsg) { 
+					await setsystem(interaction.channel.id, `${process.env.SYSTEM}`);
+					};
+
+					var	responseEmbed = {
+						color: embedColor,
+						title: 'Channel system message',
+						author: {
+							name: embedName,
+							url: embedLink,
+						},
+						description: `Channel system is ${await readsystemmsg(interaction.channel.id)}`,
+						thumbnail: {
+							url: embedThumb,
+						},
+						timestamp: new Date().toISOString(),
+						footer: {
+							text: `System`,
+							icon_url: embedIcon,
+						},
+					};
+
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
+
+                    log(LogLevel.Debug, `Finished responding to /system`);
                     break;
                 case "initprompt":
                     log(LogLevel.Debug, `Attempting to run /initprompt`)
