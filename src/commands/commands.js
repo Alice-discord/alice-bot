@@ -13,8 +13,7 @@ import model from "./model.js";
 import ping from "./ping.js";
 import describe from "./describe.js";
 import upscale from "./upscale.js";
-import addchannel from "./addchannel.js";
-import rmchannel from "./rmchannel.js";
+import togglechannel from "./togglechannel.js";
 import clear from "./clear.js";
 import respond from "./respond.js";
 import website from "./website.js";
@@ -27,7 +26,7 @@ const commandsArray = [
     setsysmsg, text2img, setinitprompt, addinitprompt,
     addsysmsg, resetsysmsg, resetinitprompt,
     system, initprompt, help, model, ping, img2img,
-    describe, upscale, addchannel, rmchannel, clear,
+    describe, upscale, togglechannel, clear,
     respond, website, togglewelcome,
     setwelcomesysmsg,
     support, setchannelsettings];

@@ -3465,107 +3465,58 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     }
                     log(LogLevel.Debug, `Finished responding to /initprompt`)
                     break;
-                case "addchannel":
-                    log(LogLevel.Debug, `Attempting to run /addchannel`)
-                    try {
-                        if (interaction.guildId != null) {
-                            var responseEmbed = {
-                                color: embedColor,
-                                title: 'Add channel',
-                                author: {
-                                    name: embedName,
-                                    url: embedLink,
-                                },
-                                description: 'You are adding the current channel to authorized channels!',
-                                thumbnail: {
-                                    url: embedThumb,
-                                },
-                                fields: [{
-                                    name: 'You have added the channel',
-                                    value: `<#${interaction.channel.id}>`,
-                                }],
-                                timestamp: new Date().toISOString(),
-                                footer: {
-                                    text: `${await addChannel(interaction.channel.id)}`,
-                                    icon_url: embedIcon,
-                                },
-                            };
+				case "togglechannel":
+					log(LogLevel.Debug, `Attempting to run /togglechannel`)
+					await interaction.deferReply();
 
-                            await interaction.deferReply();
-                            await interaction.editReply({
-                                embeds: [responseEmbed],
-                            })
-                        }
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /addchannel`)
-                    break;
-                case "rmchannel":
-                    log(LogLevel.Debug, `Attempting to run /rmchannel`)
-                    try {
-                        if (interaction.guildId != null) {
+					if (getBoolean(await checkChannel(interaction.channel.id))) {
+						
+					var	responseEmbed = {
+							color: embedColor,
+							title: 'Disabled Messages from Alice in this channel!',
+							author: {
+								name: embedName,
+								url: embedLink,
+							},
+							description: `You are Dropping the channel from alice's list!`,
+							thumbnail: {
+								url: embedThumb,
+							},
+							timestamp: new Date().toISOString(),
+							footer: {
+								text: `Toggle channel ${await removeChannel(interaction.channel.id)}`,
+								icon_url: embedIcon,
+							},
+						};
+					}
 
-                            var responseEmbed = {
-                                color: embedColor,
-                                title: 'Remove channel',
-                                author: {
-                                    name: embedName,
-                                    url: embedLink,
-                                },
-                                description: 'You are removing the current channel from authorized channels!',
-                                thumbnail: {
-                                    url: embedThumb,
-                                },
-                                fields: [{
-                                    name: 'You have removed the channel',
-                                    value: `<#${interaction.channel.id}>`,
-                                }],
-                                timestamp: new Date().toISOString(),
-                                footer: {
-                                    text: `${await removeChannel(interaction.channel.id)}`,
-                                    icon_url: embedIcon,
-                                },
-                            };
+					else {			
+						
+					var	responseEmbed = {
+							color: embedColor,
+							title: 'Enabled Messages from Alice in this channel!',
+							author: {
+								name: embedName,
+								url: embedLink,
+							},
+							description: `You are Adding this channel to alice's list!`,
+							thumbnail: {
+								url: embedThumb,
+							},
+							timestamp: new Date().toISOString(),
+							footer: {
+								text: `Toggle channel ${await addChannel(interaction.channel.id)}`,
+								icon_url: embedIcon,
+							},
+						};
+					}
 
-                            await interaction.deferReply();
-                            await interaction.editReply({
-                                embeds: [responseEmbed],
-                            })
-                        }
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /rmchannel`)
-                    break;
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
+
+					log(LogLevel.Debug, `Finished responding to /togglechannel`)
+				break;
                 case "help":
                     log(LogLevel.Debug, `Attempting to run /help`)
                     try {
@@ -3658,20 +3609,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
                                     value: `Describe is very similar to respond however it can respond to images(It is required to use describe) and prompts`,
                                 },
                                 {
-                                    name: '/enablewelcome',
-                                    value: `Allows you to enable A.I welcome messages for new members.`,
+                                    name: '/togglewelcome',
+                                    value: `Allows you to either enable or disable AI generated welcome messages`,
                                 },
                                 {
-                                    name: '/disablewelcome',
-                                    value: `Allows you to disable A.I welcome messages for new members.`,
+                                    name: '/togglechannel',
+                                    value: `Allows you to add or remove channels the bot will respond to <@${client.user.id}>`,
+                                },
+								{
+                                    name: '/setwelcomesysmsg',
+                                    value: `Set the system message the bot uses while generating welcome messages!`,
                                 },
                                 {
-                                    name: '/addchannel',
-                                    value: `Allows you to add channels the bot will respond to <@${client.user.id}>`,
-                                },
-                                {
-                                    name: '/rmchannel',
-                                    value: `Allows you to remove channels the bot will respond to <@${client.user.id}>`,
+                                    name: '/channelsettings',
+                                    value: `Set the Channel variables and settings!`,
                                 },
 
                             ],
@@ -3692,14 +3643,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
                             thumbnail: {
                                 url: embedThumb,
                             },
-                            fields: [{
-                                    name: '/setwelcomesysmsg',
-                                    value: `Set the system message the bot uses while generating welcome messages!`,
-                                },
-                                {
-                                    name: '/channelsettings',
-                                    value: `Set the Channel variables and settings!`,
-                                },
+                            fields: [
                                 {
                                     name: 'System messages',
                                     value: `System messages are tied to channel ID's; they are guidelines for a bot to follow, for example if I wrote "you must respond as chewbacca" the bot would try its best to follow those guidelines and respond as chewbacca!`,
