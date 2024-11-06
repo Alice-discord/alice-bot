@@ -1,10 +1,7 @@
 import text2img from "./text2img.js";
 import img2img from "./img2img.js";
-import setinitprompt from "./setinitprompt.js";
-import addinitprompt from "./addinitprompt.js";
-import resetinitprompt from "./resetinitprompt.js";
 import system from "./system.js";
-import initprompt from "./initprompt.js";
+import initialprompt from "./initialprompt.js";
 import help from "./help.js";
 import model from "./model.js";
 import ping from "./ping.js";
@@ -21,11 +18,13 @@ import setchannelsettings from  "./setchannelsettings.js"
 
 const commandsArray = [
     text2img, img2img,
-    setinitprompt, addinitprompt, resetinitprompt,
-    system, initprompt, help, model, ping,
-    describe, upscale, togglechannel, clear,
+    system, initialprompt,
+     help, model, ping,
+    describe, upscale,
+     togglechannel, clear,
     respond, website, togglewelcome,
     setwelcomesysmsg,
-    support, setchannelsettings];
+    support, setchannelsettings
+    ];
 
 export default commandsArray;

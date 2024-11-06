@@ -299,11 +299,6 @@ async function setinit(userID, initalprompt) {
         // Ensures that the client will close when you finish/error
         await mongoclient.close();
     }
-    moderatorLog({
-        initLog: `Set init`,
-        userID: `${userID}`,
-        initialprompt: `${initalprompt}`
-    })
 }
 
 // Read the stored initial prompt for the user on the db
@@ -1525,18 +1520,6 @@ function getBoolean(str) {
     return !!str && str != "false" && str != "no" && str != "off" && str != "0";
 }
 
-function parseJSONMessage(str) {
-    return str.split(/[\r\n]+/g).map(line => {
-        const result = JSON.parse(`"${line}"`);
-        if (typeof result !== "string") throw new "Invalid syntax in .env file";
-        return result;
-    }).join("\n");
-}
-
-function parseEnvString(str) {
-    return typeof str === "string" ?
-        parseJSONMessage(str).replace(/<date>/gi, new Date().toUTCString()) : null;
-}
 
 async function replySplitMessage(replyMessage, content) {
     const responseMessages = splitText(content, 2000).map(text => ({
@@ -2982,188 +2965,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     }
                     log(LogLevel.Debug, `Finished responding to /upscale`)
                     break;
-                case "setinitprompt":
-                    log(LogLevel.Debug, `Attempting to run /setinitprompt`)
-                    try {
-
-                        if (interaction.guild) {
-                            if (await checkForBlockedWordsGUILD(interaction.guild, options.getString("initprompt")) && await checkForBlockedWordsUSER(interaction.user, options.getString("initprompt"))) {
-                                return;
-                            }
-                        } else {
-                            if (await checkForBlockedWordsUSER(interaction.user, options.getString("initprompt"))) {
-                                return;
-                            }
-                        }
-
-                        const userdefinedinitprompt = options.getString("initprompt");
-                        setinit(interaction.user.id, userdefinedinitprompt)
-                        var initpromptresponse = `"${userdefinedinitprompt}"`
-
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Set your initial prompt',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You have set your initial prompt',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'Your initial prompt is now',
-                                value: `${initpromptresponse}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Set init-prompt`,
-                                icon_url: embedIcon,
-                            },
-                        };
-
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
-
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /setinitprompt`)
-                    break;
-                case "addinitprompt":
-                    log(LogLevel.Debug, `Attempting to run /addinitprompt`)
-                    try {
-
-                        if (interaction.guild) {
-                            if (await checkForBlockedWordsGUILD(interaction.guild, options.getString("appendinitprompt")) && await checkForBlockedWordsUSER(interaction.user, options.getString("appendinitprompt"))) {
-                                return;
-                            }
-                        } else {
-                            if (await checkForBlockedWordsUSER(interaction.user, options.getString("appendinitprompt"))) {
-                                return;
-                            }
-                        }
-
-                        const userdefinedappendinitprompt = options.getString("appendinitprompt");
-                        var notappendedinit = await readinitprompt(interaction.user.id)
-                        setinit(interaction.user.id, `${notappendedinit} ${userdefinedappendinitprompt}`)
-                        var appenededINITprompt = `"${notappendedinit} ${userdefinedappendinitprompt}"`
-                        var initpromptresponse = `"${appenededINITprompt}"`
-
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Add to your initial prompt',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You have added to your initial prompt',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'Your initial prompt is now',
-                                value: `${initpromptresponse}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Added to init-prompt`,
-                                icon_url: embedIcon,
-                            },
-                        };
-
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
-
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /addinitprompt`)
-                    break;
-                case "resetinitprompt":
-                    log(LogLevel.Debug, `Attempting to run /resetinitprompt`)
-                    try {
-                        setinit(interaction.user.id, `${process.env.INITIAL_PROMPT}`);
-                        var initpromptresponse = `"${process.env.INITIAL_PROMPT}"`
-
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Reset your initial prompt',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You reset your initial prompt',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'Your initial prompt is now',
-                                value: `${initpromptresponse}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Reset init-prompt`,
-                                icon_url: embedIcon,
-                            },
-                        };
-
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
-
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /resetinitprompt`)
-                    break;
                 case "system":
                     log(LogLevel.Debug, `Attempting to run /system`);
 
@@ -3225,7 +3026,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 						},
 						timestamp: new Date().toISOString(),
 						footer: {
-							text: `System`,
+							text: `System Message`,
 							icon_url: embedIcon,
 						},
 					};
@@ -3236,57 +3037,77 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
                     log(LogLevel.Debug, `Finished responding to /system`);
                     break;
-                case "initprompt":
-                    log(LogLevel.Debug, `Attempting to run /initprompt`)
-                    try {
-                        var readinit = await readinitprompt(interaction.user.id)
-                        let initsend = `"${readinit}"`
+					case "initialprompt":
+                    log(LogLevel.Debug, `Attempting to run /initialprompt`);
 
-                        var responseEmbed = {
-                            color: embedColor,
-                            title: 'Check Your initial prompt',
-                            author: {
-                                name: embedName,
-                                url: embedLink,
-                            },
-                            description: 'You are checking your current initial prompt',
-                            thumbnail: {
-                                url: embedThumb,
-                            },
-                            fields: [{
-                                name: 'Your initial prompt is',
-                                value: `${initsend}`,
-                            }],
-                            timestamp: new Date().toISOString(),
-                            footer: {
-                                text: `Checked init-prompt`,
-                                icon_url: embedIcon,
-                            },
-                        };
+					await interaction.deferReply();
+					let setinitmsg = options.getString("setinit") || null;
+                    let addinitmsg = options.getString("addinit") || null;
+                    let resetinitmsg = options.getBoolean("resetinit") || false;
 
-                        await interaction.deferReply();
-                        await interaction.editReply({
-                            embeds: [responseEmbed],
-                        })
+					if (interaction.guild) {
 
-                    } catch (error) {
-                        logError(error);
-                        try {
-                            await interaction.editReply({
-                                content: `Error, please check the console | OVERRIDE: ${error}`
-                            });
-                        } catch {
-                            try {
-                                await interaction.deferReply();
-                                await interaction.editReply({
-                                    content: `Error, please check the console | OVERRIDE: ${error}`
-                                });
-                            } catch (error) {
-                                logError(error);
-                            }
-                        }
-                    }
-                    log(LogLevel.Debug, `Finished responding to /initprompt`)
+						if (setinitmsg != null) {
+						if (await checkForBlockedWordsGUILD(interaction.guild, setinitmsg) && await checkForBlockedWordsUSER(interaction.user, setinitmsg)) {
+							return;
+							}
+						}
+						if (addinitmsg != null) {
+							if (await checkForBlockedWordsGUILD(interaction.guild, addinitmsg) && await checkForBlockedWordsUSER(interaction.user, addinitmsg)) {
+							return;
+							}
+						}
+					} 
+					
+					else {
+
+					if (setinitmsg != null) {
+						if (await checkForBlockedWordsUSER(interaction.user, setinitmsg)) {
+							return;
+							}
+						}
+						if (addinitmsg != null) {
+							if (await checkForBlockedWordsUSER(interaction.user, addinitmsg)) {
+							return;
+							}
+						}
+					}
+
+					if (setinitmsg != null) {
+					await setinit(interaction.user.id,setinitmsg);
+					};
+
+					if (addinitmsg != null) {
+					await setinit(interaction.user.id,`${await readinitprompt(interaction.user.id)} ${addinitmsg}`);
+					};
+
+					if (resetinitmsg) { 
+					await setinit(interaction.user.id, `${process.env.INITIAL_PROMPT}`);
+					};
+
+					var	responseEmbed = {
+						color: embedColor,
+						title: 'Your initial prompt',
+						author: {
+							name: embedName,
+							url: embedLink,
+						},
+						description: `Your current initial prompt is "${await readinitprompt(interaction.user.id)}"`,
+						thumbnail: {
+							url: embedThumb,
+						},
+						timestamp: new Date().toISOString(),
+						footer: {
+							text: `Initial prompt`,
+							icon_url: embedIcon,
+						},
+					};
+
+					await interaction.editReply({
+						embeds: [responseEmbed],
+					})
+
+                    log(LogLevel.Debug, `Finished responding to /initialprompt`);
                     break;
 				case "togglechannel":
 					log(LogLevel.Debug, `Attempting to run /togglechannel`)
