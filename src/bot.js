@@ -18,9 +18,6 @@ import {
     fetchRecommendedShardCount,
     AttachmentBuilder
 } from "discord.js";
-const {
-    MessageEmbed
-} = require('discord.js');
 import {
     Logger,
     LogLevel
@@ -64,6 +61,7 @@ const mongoclient = new MongoClient(uri, {
     }
 });
 
+// Log things into the db
 async function moderatorLog(thingtolog) {
     // connect client
     await mongoclient.connect();
@@ -108,6 +106,7 @@ moderatorLog({
     startLog: `NPM STARTED`
 })
 
+// User object used to define an object used for logging
 async function userObject(user) {
     if (user != null) {
 
@@ -122,6 +121,7 @@ async function userObject(user) {
     return `NA`
 }
 
+// Channel object used to define an object used for logging
 async function channelObject(channel) {
     if (channel != null) {
 
@@ -136,6 +136,7 @@ async function channelObject(channel) {
     return `NA`
 }
 
+// Guild object used to define an object used for logging
 async function guildObject(guild) {
     if (guild != null) {
         if (guild) {
@@ -153,6 +154,7 @@ async function guildObject(guild) {
     return `NA`
 }
 
+// Set the context variable on the db
 async function setcontext(channelID, context) {
     try {
         // Connect the client to the server
@@ -187,6 +189,7 @@ async function setcontext(channelID, context) {
     }
 }
 
+// Clear the context variable on the db
 async function clearcontext(channelID) {
     try {
         // Connect the client to the server
@@ -226,6 +229,7 @@ async function clearcontext(channelID) {
     return clearcontextresponse
 }
 
+// Read the context variable stored on the db
 async function readcontext(channelID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -263,6 +267,7 @@ async function readcontext(channelID) {
     return [0];
 }
 
+// Set the initial prompt for the user on the db
 async function setinit(userID, initalprompt) {
     try {
         // Connect the client to the server
@@ -301,6 +306,7 @@ async function setinit(userID, initalprompt) {
     })
 }
 
+// Read the stored initial prompt for the user on the db
 async function readinitprompt(userID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -338,6 +344,7 @@ async function readinitprompt(userID) {
     return `${process.env.INITIAL_PROMPT}`;
 }
 
+// Set the system message for the channel in the db
 async function setsystem(channelID, systemmessage) {
     try {
         // Connect the client to the server
@@ -376,6 +383,7 @@ async function setsystem(channelID, systemmessage) {
     })
 }
 
+// Read the stored system message for the channel in the db
 async function readsystemmsg(channelID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -414,6 +422,7 @@ async function readsystemmsg(channelID) {
     }
 }
 
+// Check if the user is blocked
 async function checkBlockeduser(userID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -433,6 +442,7 @@ async function checkBlockeduser(userID) {
     return false
 }
 
+// Check if the guild is blocked
 async function checkBlockedguild(guildID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -452,6 +462,7 @@ async function checkBlockedguild(guildID) {
     return false
 }
 
+// Check the reason for a blocked user
 async function checkBlockeduserreason(userID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -489,6 +500,7 @@ async function checkBlockeduserreason(userID) {
     return `User is not blocked`
 }
 
+// Check the reason for a blocked guild
 async function checkBlockedguildreason(guildID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -526,6 +538,7 @@ async function checkBlockedguildreason(guildID) {
     return `Guild is not blocked`
 }
 
+// Add a user to the blocked partition of the db
 async function addBlockeduser(userID, reason) {
 
     await mongoclient.connect();
@@ -567,6 +580,7 @@ async function addBlockeduser(userID, reason) {
     }
 }
 
+// Add a guild to the blocked partition of the db
 async function addBlockedguild(guildID, reason) {
     await mongoclient.connect();
 
@@ -607,7 +621,8 @@ async function addBlockedguild(guildID, reason) {
     }
 }
 
-async function removeBlockeduser(userID) {
+// Remove an block on the user
+async function pardonUser(userID) {
 
     // Connect the client to the server
     await mongoclient.connect();
@@ -647,7 +662,8 @@ async function removeBlockeduser(userID) {
     }
 }
 
-async function removeBlockedguild(guildID) {
+// Remove an block on the guild
+async function pardonGuild(guildID) {
 
     // Connect the client to the server
     await mongoclient.connect();
@@ -687,6 +703,7 @@ async function removeBlockedguild(guildID) {
     }
 }
 
+// Set the welcoming system message for the guild
 async function setwelcomesystemmsg(guildID, systemmessage) {
     try {
         // Connect the client to the server
@@ -724,6 +741,7 @@ async function setwelcomesystemmsg(guildID, systemmessage) {
     })
 }
 
+// Read the welcoming system message for the guild
 async function readwelcomesystemmsg(guildID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -770,6 +788,7 @@ async function readwelcomesystemmsg(guildID) {
     return `${process.env.SYSTEM}`;
 }
 
+// Enable/Disable the welcome message sent by the bot
 async function setwelcomesystemmsgboolean(guildID, boolean) {
     try {
         // Connect the client to the server
@@ -802,6 +821,7 @@ async function setwelcomesystemmsgboolean(guildID, boolean) {
     }
 }
 
+// Read the boolean for the welcome message in the db
 async function readwelcomesystemmsgboolean(guildID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -839,6 +859,7 @@ async function readwelcomesystemmsgboolean(guildID) {
     return false;
 }
 
+// Remove the bot's ability to talk in an channel
 async function removeChannel(channelID) {
 
     // Connect the client to the server
@@ -896,6 +917,7 @@ async function removeChannel(channelID) {
     return `CHANNEL (${channelID}) is not listed`;
 }
 
+// Enable the bot's ability to talk in an channel
 async function addChannel(channelID) {
 
     // Connect the client to the server
@@ -966,6 +988,7 @@ async function addChannel(channelID) {
     return `CHANNEL (${channelID}) is already listed`;
 }
 
+// Check if the bot can message in the channel
 async function checkChannel(channelID) {
     // Connect the client to the server
     await mongoclient.connect();
@@ -1013,6 +1036,7 @@ async function checkChannel(channelID) {
     return false
 }
 
+// Set varius channel settings
 async function setChannelSettings(channelID, requires_mention, include_system_time, include_coordinated_universal_time, include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name) {
 
     await mongoclient.connect();
@@ -1120,6 +1144,7 @@ async function setChannelSettings(channelID, requires_mention, include_system_ti
     return;
 }
 
+// Read current channel settings
 async function readChannelSettings(channelID) {
 
     await mongoclient.connect();
@@ -1229,6 +1254,7 @@ async function readChannelSettings(channelID) {
 
 }
 
+// Check if the string sent by the user contains a blocked phrase defined in env
 async function checkForBlockedWordsUSER(user, uncheckedcontent) {
     var bound = '[^\\w\u00c0-\u02c1\u037f-\u0587\u1e00-\u1ffe]';
     var regex = new RegExp('(?:^|' + bound + ')(?:' +
@@ -1246,6 +1272,7 @@ async function checkForBlockedWordsUSER(user, uncheckedcontent) {
     return false;
 }
 
+// Check if the string sent by the guild contains a blocked phrase defined in env
 async function checkForBlockedWordsGUILD(guild, uncheckedcontent) {
     var bound = '[^\\w\u00c0-\u02c1\u037f-\u0587\u1e00-\u1ffe]';
     var regex = new RegExp('(?:^|' + bound + ')(?:' +
@@ -1266,14 +1293,13 @@ async function checkForBlockedWordsGUILD(guild, uncheckedcontent) {
     return false;
 }
 
-
 // Prevent uncaught Exception stops
 process.on('uncaughtException', function(err) {
     console.error(err);
     console.error("uncaughtException...");
     console.info("Attempting to continue listening for requests!")
     moderatorLog({
-        crashLog: `NPM STARTED`
+        uncaughtExceptionLog: `${err}\nuncaughtException...\nAttempting to continue listening for requests!`
     })
 });
 
@@ -1296,8 +1322,10 @@ const logError = (error) => {
             str += ": " + error.response.data.error;
         }
         log(LogLevel.Error, str);
+		moderatorLog({ errorLog: str })
     } else {
         log(LogLevel.Error, error);
+		moderatorLog({ errorLog: error })
     }
 };
 
@@ -1309,6 +1337,7 @@ function shuffleArray(array) {
     return array;
 }
 
+// Make an request to ollama
 async function makeRequest(path, method, data) {
     while (servers.filter(server => server.available).length == 0) {
         // wait until a server is available
@@ -1354,6 +1383,7 @@ async function makeRequest(path, method, data) {
     throw error;
 }
 
+// Make an request to webui-forge
 async function makeFluxRequest(path, method, data) {
     while (FluxServers.filter(server => server.available).length == 0) {
         // wait until a server is available
@@ -1437,7 +1467,8 @@ client.once(Events.ClientReady, async () => {
         log(LogLevel.Info, "Successfully reloaded application slash (/) commands.");
         log(LogLevel.Info, `Started (Waiting for request)`);
     }
-});
+}
+);
 
 const messages = {};
 
@@ -1494,6 +1525,7 @@ function splitText(str, length) {
     return segments;
 }
 
+// Get boolean for an string
 function getBoolean(str) {
     return !!str && str != "false" && str != "no" && str != "off" && str != "0";
 }
@@ -1527,6 +1559,7 @@ async function replySplitMessage(replyMessage, content) {
     return replyMessages;
 }
 
+// Make an request to the .env defined ollama embedding model 
 async function Embedding(input) {
 
 
@@ -1601,6 +1634,7 @@ async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 
 }
 
+// Make an request to the .env defined ollama LLM and Vision-LLM models
 async function responseLLM(userInput, user, channel, guild, system, contextboolean, image) {
 
     let userIn = userInput
@@ -1709,6 +1743,7 @@ async function DonwloadImage(message) {
     }
 }
 
+// Make an request to the stable diffusion webui forge
 async function sdapi(interaction, prompt, seed, denoising_strength, width, height, cfg_scale,
     distilled_cfg_scale, sampler_name, steps, batch_count, batch_size, enhance_prompt,
     sdapiv1string, init_images, upscaling_resize, upscaler_1, upscaler_2, extras_upscaler_2_visibility) {
@@ -1827,7 +1862,7 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
     }
 }
 
-
+// On the event of a message 
 client.on(Events.MessageCreate, async message => {
     let typing = false;
     try {
@@ -2087,12 +2122,12 @@ client.on(Events.MessageCreate, async message => {
         }
         logError(error);
     }
-});
+}
+);
 
-
-if (welcomeuser) {
-    client.on('guildMemberAdd', async member => {
-
+// On the event of a user joining an guild
+client.on('guildMemberAdd', async member => {
+		if (welcomeuser) {
             if (await checkBlockeduser(member.id)) {} else {
                 if (await checkBlockedguild(member.guild.id)) {} else {
 
@@ -2117,10 +2152,10 @@ if (welcomeuser) {
             }
         }
 
-    );
+    }
+);
 
-}
-
+// On the event of the bot joining an guild
 client.on('guildCreate', async guild => {
     if (getBoolean(process.env.SENDSERVERJOINMESSAGE)) {
 
@@ -2187,7 +2222,7 @@ client.on('guildCreate', async guild => {
     }
 });
 
-
+// On the event of an interaction a.k.a slash commands
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isCommand()) return;
     const {
