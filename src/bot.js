@@ -55,10 +55,10 @@ const {
 } = require("mongodb");
 const uri = `${process.env.MONGODB_URI}`;
 const db = `${process.env.MONGODB_DB}`;
-const logcollect = `${process.env.MONGODB_LOGGING_COLLECTION}`;
-const guildscollect = `${process.env.MONGO_GUILDS_COLLECTION}`;
-const channelscollect = `${process.env.MONGO_CHANNELS_COLLECTION}`;
-const userscollect = `${process.env.MONGO_USERS_COLLECTION}`;
+const logcollect = `log`;
+const guildscollect = `guilds`;
+const channelscollect = `channels`;
+const userscollect = `users`;
 const mongoclient = new MongoClient(uri, {
     monitorCommands: true,
     serverApi: {
