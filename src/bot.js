@@ -1,6 +1,5 @@
 /* eslint-disable */
 /* @ts-nocheck */
-// austin is screwed☠️☠️☠️
 import {
     createRequire
 } from "module";
@@ -20,7 +19,6 @@ import {
     AttachmentBuilder
 } from "discord.js";
 import {
-    Logger,
     LogLevel
 } from "meklog";
 import dotenv from "dotenv";
@@ -67,8 +65,10 @@ const mongoclient = new MongoClient(uri, {
     }
 });
 
-// Log things into the db
-async function moderatorLog(thingtolog) {
+let log = async (LogLevel, input, modlog, modlogboolean) => {
+
+    // Log things into the db
+    async function moderatorLog(thingtolog) {
     // connect client
     await mongoclient.connect();
 
@@ -86,37 +86,56 @@ async function moderatorLog(thingtolog) {
     date = ({
         localtime: date
     });
+
     let logdata = Object.assign({}, thingtolog, date);
 
-
     try {
-        // Attempt to ping db admin and log "You successfully connected to MongoDB!"
-        await mongoclient.db("admin").command({
-            ping: 1
-        });
-        console.info("You successfully connected to MongoDB!");
-
         // This stores "logdata" object in database
-        console.info(`Logged "${JSON.stringify(logdata)}"`);
         await mongoclient.db(db).collection(logcollect).insertOne(logdata);
     } catch (error) {
         console.info(`Error: \n${error}`)
     };
 
-
     // close client
     await mongoclient.close();
-}
+    }
 
-moderatorLog({
-    startLog: `NPM STARTED`
-})
+    // Log input
+    if (modlogboolean) {
+    if (modlog != null) {
+        await moderatorLog(modlog)
+        if(input === null) { console.log(`[${LogLevel}]`, `[Input is null!]`); return; };
+        if(modlog === null) { console.log(`[${LogLevel}]`, `[modlog is null!]`); return; };
+        console.log(`[${LogLevel}]`, `[Type of modlog: ${typeof modlog}]\n`, input); 
+        return;
+    };
+    };
+
+    if(input === null) { console.log(`[${LogLevel}]`, `[Input is null!]`); return; };
+    console.log(`[${LogLevel}]`, input);
+    return;
+};
+
+log(LogLevel.Debug, `Loggging NPM start in db`, {startLog: `NPM STARTED`}, true)
+
+const logError = async (error) => {
+    if (error.response) {
+        let str = `Error ${error.response.status} ${error.response.statusText}: ${error.request.method} ${error.request.path}`;
+        if (error.response.data?.error) {
+            str += ": " + error.response.data.error;
+        }
+        log(LogLevel.Error, str, { errorLog: error }, true);
+    } else {
+        log(LogLevel.Error, error, { errorLog: error }, true);
+    }
+};
+
 
 // User object used to define an object used for logging
 async function userObject(user) {
     if (user != null) {
 
-        console.log(typeof user, user)
+        log(LogLevel.Debug, user)
         return {
             Name: user.displayName,
             username: user.username,
@@ -131,7 +150,7 @@ async function userObject(user) {
 async function channelObject(channel) {
     if (channel != null) {
 
-        console.log(typeof channel, channel)
+        log(LogLevel.Debug, channel)
         return {
             Name: channel.name,
             ID: channel.id,
@@ -146,7 +165,7 @@ async function channelObject(channel) {
 async function guildObject(guild) {
     if (guild != null) {
         if (guild) {
-            console.log(typeof guild, guild)
+            log(LogLevel.Debug, guild)
             return {
                 Name: guild.name,
                 ID: guild.id,
@@ -228,10 +247,14 @@ async function clearcontext(channelID) {
         // Ensures that the client will close when you finish/error
         await mongoclient.close();
     }
-    moderatorLog({
+    log(LogLevel.Debug,
+        `Log clear context for channel: ${channelID}`,
+        {
         contextLog: `Cleared context for the channel`,
         channelID: channelID
-    })
+        },
+        true
+    )
     return clearcontextresponse
 }
 
@@ -550,11 +573,15 @@ async function addBlockeduser(userID, reason) {
             blockreason: `${reason}`
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Blocked the user: ${userID}`,
+            {
             blockLog: `Add blocked user`,
             userID: `${userID}`,
             blockreason: `${reason}`
-        })
+            },
+            true
+        )
         return `Blocked USER (${userID})`;
     } else {
         await mongoclient.db(db).collection(userscollect).updateOne({
@@ -567,11 +594,15 @@ async function addBlockeduser(userID, reason) {
             }
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Blocked the user: ${userID}`,
+            {
             blockLog: `Add blocked user`,
             userID: `${userID}`,
             blockreason: `${reason}`
-        })
+            },
+            true
+        )
         return `Blocked USER (${userID})`;
     }
 }
@@ -591,11 +622,15 @@ async function addBlockedguild(guildID, reason) {
             blockreason: `${reason}`
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Blocked the guild: ${guildID}`,
+            {
             blockLog: `Add blocked guild`,
             guildID: `${guildID}`,
             blockreason: `${reason}`
-        })
+            },
+            true
+        )
         return `Blocked GUILD (${guildID})`;
     } else {
         await mongoclient.db(db).collection(guildscollect).updateOne({
@@ -608,11 +643,15 @@ async function addBlockedguild(guildID, reason) {
             }
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Blocked the guild: ${guildID}`,
+            {
             blockLog: `Add blocked guild`,
             guildID: `${guildID}`,
             blockreason: `${reason}`
-        })
+            },
+            true
+        )
         return `Blocked GUILD (${guildID})`;
     }
 }
@@ -634,10 +673,14 @@ async function pardonUser(userID) {
             blockreason: `UNBLOCKED`
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Remove block on the user: ${userID}`,
+            {
             blockLog: `Remove blocked user`,
             userID: `${userID}`
-        })
+            },
+            true
+        )
         return `unblocked USER (${userID})`;
     } else {
         await mongoclient.db(db).collection(userscollect).updateOne({
@@ -650,10 +693,14 @@ async function pardonUser(userID) {
             }
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Remove block on the user: ${userID}`,
+            {
             blockLog: `Remove blocked user`,
             userID: `${userID}`
-        })
+            },
+            true
+        )
         return `unblocked USER (${userID})`;
     }
 }
@@ -675,10 +722,14 @@ async function pardonGuild(guildID) {
             blockreason: `UNBLOCKED`
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Remove block on the guild: ${guildID}`,
+            {
             blockLog: `Remove blocked guild`,
             guildID: `${guildID}`
-        })
+            },
+            true
+        )
         return `unblocked GUILD (${guildID})`;
     } else {
         await mongoclient.db(db).collection(guildscollect).updateOne({
@@ -691,10 +742,14 @@ async function pardonGuild(guildID) {
             }
         })
         await mongoclient.close();
-        moderatorLog({
+        log(LogLevel.Debug,
+            `Remove block on the guild: ${guildID}`,
+            {
             blockLog: `Remove blocked guild`,
             guildID: `${guildID}`
-        })
+            },
+            true
+        )
         return `unblocked GUILD (${guildID})`;
     }
 }
@@ -730,11 +785,15 @@ async function setwelcomesystemmsg(guildID, systemmessage) {
         // Ensures that the client will close when you finish/error
         await mongoclient.close();
     }
-    moderatorLog({
+    log(LogLevel.Debug,
+        `Set welcome system message for guild(${guildID})`,
+        {
         systemLog: `Set welcome system message`,
         guildID: `${guildID}`,
         welcomesystemmessage: `${systemmessage}`
-    })
+        },
+        true
+    )
 }
 
 // Read the welcoming system message for the guild
@@ -1294,9 +1353,13 @@ process.on('uncaughtException', function(err) {
     console.error(err);
     console.error("uncaughtException...");
     console.info("Attempting to continue listening for requests!")
-    moderatorLog({
+    log(LogLevel.Debug,
+        `${err}\nuncaughtException...\nAttempting to continue listening for requests!`,
+        {
         uncaughtExceptionLog: `${err}\nuncaughtException...\nAttempting to continue listening for requests!`
-    })
+        },
+        true
+    )
 });
 
 dotenv.config();
@@ -1304,26 +1367,6 @@ dotenv.config();
 if (servers.length == 0) {
     throw new Error("No servers available");
 }
-
-let log;
-process.on("message", data => {
-    if (data.shardID) client.shardID = data.shardID;
-    if (data.logger) log = new Logger(data.logger);
-});
-
-const logError = (error) => {
-    if (error.response) {
-        let str = `Error ${error.response.status} ${error.response.statusText}: ${error.request.method} ${error.request.path}`;
-        if (error.response.data?.error) {
-            str += ": " + error.response.data.error;
-        }
-        log(LogLevel.Error, str);
-		moderatorLog({ errorLog: str })
-    } else {
-        log(LogLevel.Error, error);
-		moderatorLog({ errorLog: error })
-    }
-};
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -1663,7 +1706,6 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
     }
 
     if (typeof response != "string") {
-        log(LogLevel.Debug, response);
         throw new TypeError("response is not a string, this may be an error with ollama");
     }
 
@@ -1696,7 +1738,12 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
         channel: await channelObject(channel),
         guild: await guildObject(guild)
     }
-    moderatorLog(llmLog)
+    log(
+        LogLevel.Debug, 
+        responseText,
+        llmLog,
+        true
+    )
     return responseText
 
 }
@@ -1759,14 +1806,19 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
                     send_images: true,
                     save_images: false,
                 });
-            moderatorLog({
+            log(
+                LogLevel.Debug,
+                null,
+                {
                 sdapiLog: `A request was made to sdapi for a upscaled image`,
                 beforeimage: init_images,
                 afterimage: responseFlux,
                 user: await userObject(interaction.user),
                 channel: await channelObject(interaction.channel),
                 guild: await guildObject(interaction.guild)
-            })
+                },
+                true
+            )
             return await images(responseFlux)
         }
         if (sdapiv1string == `img2img`) {
@@ -1790,7 +1842,10 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
                     send_images: true,
                     save_images: false,
                 });
-            moderatorLog({
+            log(
+                LogLevel.Debug,
+                null,
+                {
                 sdapiLog: `A request was made to sdapi for a image to image image`,
                 prompt,
                 beforeimage: init_images,
@@ -1801,7 +1856,9 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
                 user: await userObject(interaction.user),
                 channel: await channelObject(interaction.channel),
                 guild: await guildObject(interaction.guild)
-            })
+                },
+                true
+            )
             return await images(responseFlux)
         }
         if (sdapiv1string == `txt2img`) {
@@ -1825,14 +1882,18 @@ async function sdapi(interaction, prompt, seed, denoising_strength, width, heigh
                     save_images: false,
                 });
 
-            moderatorLog({
+            log(
+                LogLevel.Debug,
+                null,
+                {
                 sdapiLog: `A request was made to sdapi for a text to image image`,
                 prompt,
                 afterimage: responseFlux,
                 user: await userObject(interaction.user),
                 channel: await channelObject(interaction.channel),
                 guild: await guildObject(interaction.guild)
-            })
+                }
+            )
             return await images(responseFlux)
         }
 
@@ -2206,7 +2267,7 @@ client.on('guildCreate', async guild => {
     }
 });
 
-// On the event of an interaction a.k.a slash commands
+// On the event of the creation of an interaction the bot is listening to a.k.a slash commands
 client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isCommand()) return;
     const {
