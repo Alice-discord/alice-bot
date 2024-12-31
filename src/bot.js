@@ -656,104 +656,6 @@ async function addBlockedguild(guildID, reason) {
     }
 }
 
-// Remove an block on the user
-async function pardonUser(userID) {
-
-    // Connect the client to the server
-    await mongoclient.connect();
-
-    if (!await mongoclient.db(db).collection(userscollect).countDocuments({
-            userID: `${userID}`
-        }, {
-            limit: 1
-        }) == 1) {
-        await mongoclient.db(db).collection(userscollect).insertOne({
-            userID: `${userID}`,
-            isblocked: false,
-            blockreason: `UNBLOCKED`
-        })
-        await mongoclient.close();
-        log(LogLevel.Debug,
-            `Remove block on the user: ${userID}`,
-            {
-            blockLog: `Remove blocked user`,
-            userID: `${userID}`
-            },
-            true
-        )
-        return `unblocked USER (${userID})`;
-    } else {
-        await mongoclient.db(db).collection(userscollect).updateOne({
-            userID: `${userID}`
-        }, {
-            $set: {
-                userID: `${userID}`,
-                isblocked: false,
-                blockreason: `UNBLOCKED`
-            }
-        })
-        await mongoclient.close();
-        log(LogLevel.Debug,
-            `Remove block on the user: ${userID}`,
-            {
-            blockLog: `Remove blocked user`,
-            userID: `${userID}`
-            },
-            true
-        )
-        return `unblocked USER (${userID})`;
-    }
-}
-
-// Remove an block on the guild
-async function pardonGuild(guildID) {
-
-    // Connect the client to the server
-    await mongoclient.connect();
-
-    if (!await mongoclient.db(db).collection(guildscollect).countDocuments({
-            guildID: `${guildID}`
-        }, {
-            limit: 1
-        }) == 1) {
-        await mongoclient.db(db).collection(guildscollect).insertOne({
-            guildID: `${guildID}`,
-            isblocked: false,
-            blockreason: `UNBLOCKED`
-        })
-        await mongoclient.close();
-        log(LogLevel.Debug,
-            `Remove block on the guild: ${guildID}`,
-            {
-            blockLog: `Remove blocked guild`,
-            guildID: `${guildID}`
-            },
-            true
-        )
-        return `unblocked GUILD (${guildID})`;
-    } else {
-        await mongoclient.db(db).collection(guildscollect).updateOne({
-            guildID: `${guildID}`
-        }, {
-            $set: {
-                guildID: `${guildID}`,
-                isblocked: false,
-                blockreason: `UNBLOCKED`
-            }
-        })
-        await mongoclient.close();
-        log(LogLevel.Debug,
-            `Remove block on the guild: ${guildID}`,
-            {
-            blockLog: `Remove blocked guild`,
-            guildID: `${guildID}`
-            },
-            true
-        )
-        return `unblocked GUILD (${guildID})`;
-    }
-}
-
 // Set the welcoming system message for the guild
 async function setwelcomesystemmsg(guildID, systemmessage) {
     try {
@@ -1092,7 +994,10 @@ async function checkChannel(channelID) {
 }
 
 // Set varius channel settings
-async function setChannelSettings(channelID, requires_mention, include_system_time, include_coordinated_universal_time, include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name) {
+async function setChannelSettings(channelID, requires_mention, include_system_time, include_coordinated_universal_time,
+    include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name, 
+    temperature, top_k, top_p, min_p, repeat_penalty
+    ) {
 
     await mongoclient.connect();
 
@@ -1191,6 +1096,61 @@ async function setChannelSettings(channelID, requires_mention, include_system_ti
             $set: {
                 channelID: `${channelID}`,
                 include_guild_name: include_guild_name
+            }
+        })
+    }
+
+    if (temperature != null) {
+        await mongoclient.db(db).collection(channelscollect).updateOne({
+            channelID: `${channelID}`
+        }, {
+            $set: {
+                channelID: `${channelID}`,
+                temperature: temperature
+            }
+        })
+    }
+
+    if (top_k != null) {
+        await mongoclient.db(db).collection(channelscollect).updateOne({
+            channelID: `${channelID}`
+        }, {
+            $set: {
+                channelID: `${channelID}`,
+                top_k: top_k
+            }
+        })
+    }
+
+    if (top_p != null) {
+        await mongoclient.db(db).collection(channelscollect).updateOne({
+            channelID: `${channelID}`
+        }, {
+            $set: {
+                channelID: `${channelID}`,
+                top_p: top_p
+            }
+        })
+    }
+
+    if (min_p != null) {
+        await mongoclient.db(db).collection(channelscollect).updateOne({
+            channelID: `${channelID}`
+        }, {
+            $set: {
+                channelID: `${channelID}`,
+                min_p: min_p
+            }
+        })
+    }
+
+    if (repeat_penalty != null) {
+        await mongoclient.db(db).collection(channelscollect).updateOne({
+            channelID: `${channelID}`
+        }, {
+            $set: {
+                channelID: `${channelID}`,
+                repeat_penalty: repeat_penalty
             }
         })
     }
@@ -1294,6 +1254,96 @@ async function readChannelSettings(channelID) {
         var include_guild_name = false
     }
 
+    var temperature = 0.7
+    var temperatureresponse = await mongoclient.db(db).collection(channelscollect).findOne(
+        {
+        channelID: `${channelID}`
+    },
+    {
+        sort: {
+            "temperature": -1
+        },
+        projection: {
+            _id: 0,
+            temperature: 1
+        },
+    });
+
+    var temperatureresponse = JSON.stringify(temperatureresponse.temperature).slice(1, -1) * 1
+    if (temperatureresponse != temperature) {var temperature = temperatureresponse}
+
+    var repeat_penalty = 1.1
+    var repeat_penalty_response = await mongoclient.db(db).collection(channelscollect).findOne(
+        {
+        channelID: `${channelID}`
+    },
+    {
+        sort: {
+            "repeat_penalty": -1
+        },
+        projection: {
+            _id: 0,
+            repeat_penalty: 1
+        },
+    });
+
+    var repeat_penalty_response = JSON.stringify(repeat_penalty_response.repeat_penalty).slice(1, -1) * 1
+    if (repeat_penalty_response != repeat_penalty) {var repeat_penalty = repeat_penalty_response}
+
+    var top_k = 40
+    var top_k_response = await mongoclient.db(db).collection(channelscollect).findOne(
+        {
+        channelID: `${channelID}`
+    },
+    {
+        sort: {
+            "top_k": -1
+        },
+        projection: {
+            _id: 0,
+            top_k: 1
+        },
+    });
+
+    var top_k_response = JSON.stringify(top_k_response.top_k).slice(1, -1) * 1
+    if (top_k_response != top_k) {var top_k = top_k_response}
+
+    var top_p = 0.9
+    var top_p_response = await mongoclient.db(db).collection(channelscollect).findOne(
+        {
+        channelID: `${channelID}`
+    },
+    {
+        sort: {
+            "top_p": -1
+        },
+        projection: {
+            _id: 0,
+            top_p: 1
+        },
+    });
+
+    var top_p_response = JSON.stringify(top_p_response.top_p).slice(1, -1) * 1
+    if (top_p_response != top_p) {var top_p = top_p_response}
+
+    var min_p = 0
+    var min_p_response = await mongoclient.db(db).collection(channelscollect).findOne(
+        {
+        channelID: `${channelID}`
+    },
+    {
+        sort: {
+            "min_p": -1
+        },
+        projection: {
+            _id: 0,
+            min_p: 1
+        },
+    });
+
+    var min_p_response = JSON.stringify(min_p_response.min_p).slice(1, -1) * 1
+    if (min_p_response != min_p) {var min_p = min_p_response}
+
     await mongoclient.close();
     return {
         requiresMention,
@@ -1304,7 +1354,12 @@ async function readChannelSettings(channelID) {
         include_user_nick,
         include_channel_id,
         include_channel_name,
-        include_guild_name
+        include_guild_name,
+        temperature,
+        repeat_penalty,
+        top_k,
+        top_p,
+        min_p
     }
 
 }
@@ -1586,25 +1641,6 @@ async function replySplitMessage(replyMessage, content) {
     return replyMessages;
 }
 
-// Make an request to the .env defined ollama embedding model 
-async function Embedding(input) {
-
-
-    var responseEmbed = (await makeRequest("/api/embed", "post", {
-        model: embedmodel,
-        input
-    }));
-
-    responseEmbed = await responseEmbed.split("\n").filter(e => !!e).map(e => {
-        return JSON.parse(e);
-    });
-
-    let responseEmbedVector = JSON.parse("[" + await responseEmbed.map(e => e.embeddings).filter(e => e != null).join("").trim() + "]");
-
-    return responseEmbedVector
-
-}
-
 async function LLMUserInputScopeFetch(userInput, user, channel, guild) {
 
     if (channel === null && guild === null) {
@@ -1691,6 +1727,13 @@ async function responseLLM(userInput, user, channel, guild, system, contextboole
             model: model,
             prompt: userInput,
             system: systemMessagetomodel,
+            options: {
+            temperature: await readChannelSettings(channel.id).temperature,
+            repeat_penalty: await readChannelSettings(channel.id).repeat_penalty,
+            top_k: await readChannelSettings(channel.id).top_k,
+            top_p: await readChannelSettings(channel.id).top_p,
+            min_p: await readChannelSettings(channel.id).min_p
+            },
             keep_alive: 0,
             context
         }));
@@ -3782,9 +3825,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
                     const include_channel_id = options.getBoolean("include_channel_id");
                     const include_channel_name = options.getBoolean("include_channel_name");
                     const include_guild_name = options.getBoolean("include_guild_name");
+                    const temperature = options.getNumber("temperature");
+                    const top_k = options.getNumber("top_k");
+                    const top_p = options.getNumber("top_p");
+                    const min_p = options.getNumber("min_p");
+                    const repeat_penalty = options.getNumber("repeat_penalty");
+
 
                     await interaction.deferReply();
-                    await setChannelSettings(interaction.channel.id, requires_mention, include_system_time, include_coordinated_universal_time, include_username, include_user_id, include_user_nick, include_channel_id, include_channel_name, include_guild_name)
+                    await setChannelSettings(
+                        interaction.channel.id, requires_mention,
+                         include_system_time, include_coordinated_universal_time,
+                          include_username, include_user_id, include_user_nick,
+                           include_channel_id, include_channel_name, include_guild_name,
+                           temperature, top_k, top_p, min_p, repeat_penalty
+                    );
 
                     var responseEmbed = {
                         color: embedColor,
