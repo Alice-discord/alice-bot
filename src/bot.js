@@ -1254,95 +1254,80 @@ async function readChannelSettings(channelID) {
         var include_guild_name = false
     }
 
-    var temperature = 0.7
-    var temperatureresponse = await mongoclient.db(db).collection(channelscollect).findOne(
-        {
+
+    if (await mongoclient.db(db).collection(channelscollect).countDocuments({
         channelID: `${channelID}`
-    },
+    }, {
+        limit: 1
+    }) == 1)
+    
+
     {
-        sort: {
-            "temperature": -1
-        },
-        projection: {
-            _id: 0,
-            temperature: 1
-        },
-    });
+        var temperature = 0.7
+        var temperatureresponse = await mongoclient.db(db).collection(channelscollect).findOne({channelID: `${channelID}`}, 
+            {
+            sort: {
+                "temperature": -1
+            },
+            projection: {
+                _id: 0,
+                temperature: 1
+            }});
+        temperatureresponse = JSON.stringify(temperatureresponse.temperature) * 1
+        if (temperatureresponse != temperature) {var temperature = temperatureresponse}
 
-    var temperatureresponse = JSON.stringify(temperatureresponse.temperature).slice(1, -1) * 1
-    if (temperatureresponse != temperature) {var temperature = temperatureresponse}
+        var repeat_penalty = 1.1
+        var repeat_penalty_response = await mongoclient.db(db).collection(channelscollect).findOne({channelID: `${channelID}`}, 
+            {
+            sort: {
+                "repeat_penalty": -1
+            },
+            projection: {
+                _id: 0,
+                repeat_penalty: 1
+            }});
+        repeat_penalty_response = JSON.stringify(repeat_penalty_response.repeat_penalty) * 1
+        if (repeat_penalty_response != repeat_penalty) {var repeat_penalty = repeat_penalty_response}
 
-    var repeat_penalty = 1.1
-    var repeat_penalty_response = await mongoclient.db(db).collection(channelscollect).findOne(
-        {
-        channelID: `${channelID}`
-    },
-    {
-        sort: {
-            "repeat_penalty": -1
-        },
-        projection: {
-            _id: 0,
-            repeat_penalty: 1
-        },
-    });
+        var top_k = 40
+        var top_k_response = await mongoclient.db(db).collection(channelscollect).findOne({channelID: `${channelID}`}, 
+            {
+            sort: {
+                "top_k": -1
+            },
+            projection: {
+                _id: 0,
+                top_k: 1
+            }});
+        top_k_response = JSON.stringify(top_k_response.top_k) * 1
+        if (top_k_response != top_k) {var top_k = top_k_response}
 
-    var repeat_penalty_response = JSON.stringify(repeat_penalty_response.repeat_penalty).slice(1, -1) * 1
-    if (repeat_penalty_response != repeat_penalty) {var repeat_penalty = repeat_penalty_response}
+        var top_p = 0.9
+        var top_p_response = await mongoclient.db(db).collection(channelscollect).findOne({channelID: `${channelID}`}, 
+            {
+            sort: {
+                "top_p": -1
+            },
+            projection: {
+                _id: 0,
+                top_p: 1
+            }});
+        top_p_response = JSON.stringify(top_p_response.top_p) * 1
+        if (top_p_response != top_p) {var top_p = top_p_response}
 
-    var top_k = 40
-    var top_k_response = await mongoclient.db(db).collection(channelscollect).findOne(
-        {
-        channelID: `${channelID}`
-    },
-    {
-        sort: {
-            "top_k": -1
-        },
-        projection: {
-            _id: 0,
-            top_k: 1
-        },
-    });
-
-    var top_k_response = JSON.stringify(top_k_response.top_k).slice(1, -1) * 1
-    if (top_k_response != top_k) {var top_k = top_k_response}
-
-    var top_p = 0.9
-    var top_p_response = await mongoclient.db(db).collection(channelscollect).findOne(
-        {
-        channelID: `${channelID}`
-    },
-    {
-        sort: {
-            "top_p": -1
-        },
-        projection: {
-            _id: 0,
-            top_p: 1
-        },
-    });
-
-    var top_p_response = JSON.stringify(top_p_response.top_p).slice(1, -1) * 1
-    if (top_p_response != top_p) {var top_p = top_p_response}
-
-    var min_p = 0
-    var min_p_response = await mongoclient.db(db).collection(channelscollect).findOne(
-        {
-        channelID: `${channelID}`
-    },
-    {
-        sort: {
-            "min_p": -1
-        },
-        projection: {
-            _id: 0,
-            min_p: 1
-        },
-    });
-
-    var min_p_response = JSON.stringify(min_p_response.min_p).slice(1, -1) * 1
-    if (min_p_response != min_p) {var min_p = min_p_response}
+        var min_p = 0
+        var min_p_response = await mongoclient.db(db).collection(channelscollect).findOne({channelID: `${channelID}`}, 
+            {
+            sort: {
+                "min_p": -1
+            },
+            projection: {
+                _id: 0,
+                min_p: 1
+            }});
+        min_p_response = JSON.stringify(min_p_response.top_p) * 1
+        if (min_p_response != min_p) {var min_p = min_p_response}        
+    }
 
     await mongoclient.close();
     return {
